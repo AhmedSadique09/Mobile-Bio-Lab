@@ -1,5 +1,5 @@
-const { DataTypes } = require('sequelize');
-const { sequelize } = require('../db/mysql');
+import { DataTypes } from 'sequelize';
+import { sequelize } from '../db/mysql.js';
 
 const User = sequelize.define('User', {
   firstName: DataTypes.STRING,
@@ -14,4 +14,4 @@ const User = sequelize.define('User', {
   isVerified: { type: DataTypes.BOOLEAN, defaultValue: false }
 });
 
-module.exports = User;
+export default User;

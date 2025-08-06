@@ -1,30 +1,41 @@
-const express = require('express');
-const cors = require('cors');
-const bodyParser = require('body-parser');
+import express from 'express';
+import cors from 'cors';
+import path from 'path';
+import dotenv from 'dotenv';
+import authRoutes from './routes/authRoutes.js';
+import { connectDB } from './db/mysql.js';
+import User from './models/User.js';
 
-const { connectDB } = require('./db/mysql');  // MySQL connection function
-// const authRoutes = require('./routes/authRoutes'); // Routes
-const User = require('./models/User'); // User model
+dotenv.config();
 
 const app = express();
-const PORT = 5000;
+const PORT = 3000;
 
-// Middleware
+// Middlewares
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static(path.join(path.resolve(), 'uploads')));
 
 // Routes
-// app.use('/api/auth', authRoutes);
+app.use('/api/auth', authRoutes);
 
-// Connect to DB
+// DB Connection
 connectDB();
 
-// Sync Models (Create or update tables)
+// Sync MySQL models
 User.sync({ alter: true })
   .then(() => console.log('🧩 User table synced successfully.'))
   .catch((err) => console.error('❌ Error syncing User table:', err));
 
-// Start server
+// Global Error Handler
+app.use((err, req, res, next) => {
+  const status = err.status || 500;
+  const message = err.message || 'Something went wrong';
+  res.status(status).json({ success: false, message });
+});
+
+// Start Server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });

@@ -1,17 +1,25 @@
-const { Sequelize } = require('sequelize');
+import { Sequelize } from 'sequelize';
+import dotenv from 'dotenv';
 
-const sequelize = new Sequelize('mobile_bio_lab', 'root', '@Ahmed123', {
-  host: 'localhost',
-  dialect: 'mysql',
-});
+dotenv.config();
 
-const connectDB = async () => {
+// Sequelize instance
+export const sequelize = new Sequelize(
+  process.env.DB_NAME,
+  process.env.DB_USER,
+  process.env.DB_PASSWORD,
+  {
+    host: process.env.DB_HOST,
+    dialect: 'mysql',
+  }
+);
+
+// DB Connect function
+export const connectDB = async () => {
   try {
     await sequelize.authenticate();
-    console.log('✅ Connected to MySQL database');
+    console.log('✅ Connected to MySQL database via Sequelize');
   } catch (error) {
-    console.error('❌ Unable to connect to the database:', error);
+    console.error('❌ MySQL connection failed:', error);
   }
 };
-
-module.exports = { sequelize, connectDB };
