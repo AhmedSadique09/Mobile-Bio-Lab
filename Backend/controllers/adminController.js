@@ -50,3 +50,27 @@ export const updateUserByAdmin = (req, res, next) => {
     }
   });
 };
+
+export const deleteUserByAdmin = async (req, res, next) => {
+  try {
+    const userId = req.params.userId;
+
+    // ✅ Only admin can delete any user
+    if (req.user.role !== 'Admin') {
+      return next(errorHandler(403, 'Only admin can delete users'));
+    }
+
+    const deleted = await User.destroy({ where: { id: userId } });
+
+    if (deleted === 0) {
+      return next(errorHandler(404, 'User not found'));
+    }
+
+    res.status(200).json('User has been deleted by admin');
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+

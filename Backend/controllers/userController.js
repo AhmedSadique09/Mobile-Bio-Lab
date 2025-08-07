@@ -5,14 +5,14 @@ import { errorHandler } from '../utils/error.js';
 import User from '../models/User.js';
 
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/');
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + '-' + file.originalname);
-  }
-});
-const upload = multer({ storage }).single('profilePicture');
+    destination: function (req, file, cb) {
+      cb(null, 'uploads/');
+    },
+    filename: function (req, file, cb) {
+      cb(null, Date.now() + '-' + file.originalname);
+    }
+  });
+  const upload = multer({ storage }).single('profilePicture');
 
 export const updateProfileByUser = (req, res, next) => {
   upload(req, res, async (err) => {
@@ -64,6 +64,27 @@ export const updateProfileByUser = (req, res, next) => {
     }
   });
 };
+
+export const deleteOwnAccount = async (req, res, next) => {
+    try {
+      const userId = req.params.userId;
+  
+      // ✅ Only user can delete their own account
+      if (req.user.id !== parseInt(userId)) {
+        return next(errorHandler(403, 'You are not allowed to delete this account'));
+      }
+  
+      const deleted = await User.destroy({ where: { id: userId } });
+  
+      if (deleted === 0) {
+        return next(errorHandler(404, 'User not found'));
+      }
+  
+      res.status(200).json('Your account has been deleted');
+    } catch (error) {
+      next(error);
+    }
+  };
 
 
 export const getUsers = async (req, res, next) => {

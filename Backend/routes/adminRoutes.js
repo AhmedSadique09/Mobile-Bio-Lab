@@ -1,7 +1,7 @@
 import express from 'express';
 import { verifyToken } from '../utils/verifyUser.js';
 import { verifyAdmin } from '../utils/verifyAdmin.js';
-import { updateUserByAdmin } from '../controllers/adminController.js';
+import { updateUserByAdmin,deleteUserByAdmin } from '../controllers/adminController.js';
 
 const router = express.Router();
 
@@ -12,5 +12,8 @@ router.get('/dashboard', verifyToken, verifyAdmin, (req, res) => {
 
 // ✅ Admin can update limited fields of any user
 router.put('/update-user/:userId', verifyToken, verifyAdmin, updateUserByAdmin);
+
+
+router.delete('/delete-user/:userId', verifyAdmin, deleteUserByAdmin);
 
 export default router;
