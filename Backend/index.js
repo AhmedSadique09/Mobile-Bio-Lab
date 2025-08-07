@@ -3,8 +3,10 @@ import cors from 'cors';
 import path from 'path';
 import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
 import { connectDB } from './db/mysql.js';
 import User from './models/User.js';
+
 
 dotenv.config();
 
@@ -19,13 +21,17 @@ app.use('/uploads', express.static(path.join(path.resolve(), 'uploads')));
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+
 
 // DB Connection
 connectDB();
 
 // Sync MySQL models
-User.sync({ alter: true })
-  .then(() => console.log('🧩 User table synced successfully.'))
+User.sync()  // 👈 bas itna rakh do
+  .then(() => {
+    console.log('🧩 User table synced successfully.');
+  })
   .catch((err) => console.error('❌ Error syncing User table:', err));
 
 // Global Error Handler
