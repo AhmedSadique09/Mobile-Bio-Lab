@@ -4,6 +4,7 @@ import path from 'path';
 import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 import { connectDB } from './db/mysql.js';
 import User from './models/User.js';
 
@@ -22,6 +23,7 @@ app.use('/uploads', express.static(path.join(path.resolve(), 'uploads')));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/users', userRoutes);
 
 
 // DB Connection
