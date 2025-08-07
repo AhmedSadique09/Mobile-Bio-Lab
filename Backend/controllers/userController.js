@@ -1,7 +1,69 @@
 import { Op } from 'sequelize';
-// import bcrypt from 'bcryptjs';
+import bcrypt from 'bcryptjs';
+import multer from 'multer';
 import { errorHandler } from '../utils/error.js';
 import User from '../models/User.js';
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + '-' + file.originalname);
+  }
+});
+const upload = multer({ storage }).single('profilePicture');
+
+export const updateProfileByUser = (req, res, next) => {
+  upload(req, res, async (err) => {
+    if (err) return next(errorHandler(500, 'Image upload failed'));
+
+    try {
+      const userId = req.user.id;
+
+      const {firstName,lastName,mobile,email,city,oldPassword,newPassword} = req.body;
+
+      const profilePicture = req.file ? req.file.filename : null;
+
+      const user = await User.findByPk(userId);
+      if (!user) return next(errorHandler(404, 'User not found'));
+
+      // 🔐 Password update with check
+      if (newPassword) {
+        if (!oldPassword) {
+          return next(errorHandler(400, 'Old password is required'));
+        }
+
+        const isMatch = bcrypt.compareSync(oldPassword, user.password);
+        if (!isMatch) {
+          return next(errorHandler(400, 'Old password is incorrect'));
+        }
+
+        if (newPassword.length < 6) {
+          return next(errorHandler(400, 'New password must be at least 6 characters'));
+        }
+
+        user.password = bcrypt.hashSync(newPassword, 10);
+      }
+
+      // ✅ Allowed fields only
+      user.firstName = firstName || user.firstName;
+      user.lastName = lastName || user.lastName;
+      user.mobile = mobile || user.mobile;
+      user.email = email || user.email;
+      user.city = city || user.city;
+      if (profilePicture) user.profilePicture = profilePicture;
+
+      await user.save();
+
+      const { password, ...updatedUser } = user.toJSON();
+      res.status(200).json(updatedUser);
+
+    } catch (error) {
+      next(error);
+    }
+  });
+};
 
 
 export const getUsers = async (req, res, next) => {
