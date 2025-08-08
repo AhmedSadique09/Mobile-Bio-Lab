@@ -3,6 +3,8 @@ import path from 'path';
 import User from '../models/User.js';
 import { errorHandler } from '../utils/error.js';
 import nodemailer from 'nodemailer';
+import { generateUserListPDF } from '../utils/pdfGenerator.js';
+import fs from 'fs';
 
 
 const storage = multer.diskStorage({
@@ -13,8 +15,7 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + '-' + file.originalname);
   }
 });
-
-const upload = multer({ storage }).single('profilePicture'); // 👈 name must match form-data field
+const upload = multer({ storage }).single('profilePicture');
 
 export const updateUserByAdmin = (req, res, next) => {
   upload(req, res, async (err) => {
@@ -55,7 +56,6 @@ export const deleteUserByAdmin = async (req, res, next) => {
   try {
     const userId = req.params.userId;
 
-    // ✅ Only admin can delete any user
     if (req.user.role !== 'Admin') {
       return next(errorHandler(403, 'Only admin can delete users'));
     }
@@ -96,24 +96,20 @@ export const verifyUserByAdmin = async (req, res, next) => {
   }
 };
 
-
 export const sendActivationEmail = async (req, res, next) => {
   try {
     const userId = req.params.userId;
 
-    // 🔐 Only Admin can send activation email
     if (req.user.role !== 'Admin') {
       return next(errorHandler(403, 'Only admin can send activation emails'));
     }
 
-    // 🔍 Find user by ID
     const user = await User.findByPk(userId);
     if (!user) return next(errorHandler(404, 'User not found'));
 
     const activationLink = `http://localhost:3000/api/users/activate/${user.vuId}`;
     const activationText = `Activate Now ${user.vuId}`;
 
-    // 📧 Email setup using Gmail and App Password
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -122,7 +118,6 @@ export const sendActivationEmail = async (req, res, next) => {
       }
     });
 
-    // 📩 Email content with clickable link
     const mailOptions = {
       from: `"Mobile Bio Lab Admin" <${process.env.MAIL_USER}>`,
       to: user.email,
@@ -136,7 +131,6 @@ export const sendActivationEmail = async (req, res, next) => {
       `
     };
 
-    // 📤 Send email
     await transporter.sendMail(mailOptions);
     res.status(200).json('Activation email sent to user');
 
@@ -144,6 +138,38 @@ export const sendActivationEmail = async (req, res, next) => {
     next(error);
   }
 };
+
+export const exportUsersToPDF = async (req, res, next) => {
+  try {
+    if (req.user.role !== 'Admin') {
+      return next(errorHandler(403, 'Admins only can export user lists'));
+    }
+
+    const { role, city } = req.query;
+    const whereClause = {};
+    if (role) whereClause.role = role;
+    if (city) whereClause.city = city;
+
+    const users = await User.findAll({
+      where: whereClause,
+      attributes: ['firstName', 'lastName', 'email', 'role', 'city']
+    });
+
+    const filePath = path.join('uploads', `user-list-${Date.now()}.pdf`);
+    generateUserListPDF(users, filePath);
+
+    setTimeout(() => {
+      res.download(filePath, () => {
+        fs.unlinkSync(filePath);
+      });
+    }, 1000);
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+
 
 
 

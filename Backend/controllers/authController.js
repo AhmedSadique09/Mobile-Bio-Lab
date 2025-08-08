@@ -6,7 +6,7 @@ import User from '../models/User.js';
 import fs from 'fs';
 import path from 'path';
 
-// ========== Multer Setup ==========
+
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, 'uploads/');
@@ -17,38 +17,24 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage }).single('profile_picture');
 
-// ========== Register ==========
 
 export const register = (req, res, next) => {
   upload(req, res, async (err) => {
     if (err) return next(errorHandler(500, 'Image upload failed'));
 
     try {
-      const {
-        first_name,
-        last_name,
-        vu_id,
-        vu_email,
-        mobile_number,
-        role,
-        city,
-        password
-      } = req.body;
+      const { first_name, last_name, vu_id, vu_email, mobile_number, role, city, password } = req.body;
 
       const profile_picture = req.file ? req.file.filename : null;
 
       if (
-        !first_name || !last_name || !vu_id || !vu_email || !mobile_number ||
-        !role || !city || !password
-      ) {
-        // 🧹 Delete image if it was uploaded
+        !first_name || !last_name || !vu_id || !vu_email || !mobile_number || !role || !city || !password) {
         if (profile_picture) {
           fs.unlinkSync(path.join('uploads', profile_picture));
         }
         return next(errorHandler(400, 'All fields are required'));
       }
 
-      // ✅ Prevent multiple Admin accounts
       if (role === 'Admin') {
         const existingAdmin = await User.findOne({ where: { role: 'Admin' } });
         if (existingAdmin) {
@@ -59,7 +45,6 @@ export const register = (req, res, next) => {
         }
       }
 
-      // ✅ Check if user with same email already exists
       const existingUser = await User.findOne({ where: { email: vu_email } });
       if (existingUser) {
         if (profile_picture) {
@@ -87,7 +72,6 @@ export const register = (req, res, next) => {
       res.status(200).json('Register successful');
 
     } catch (error) {
-      // 🔁 Cleanup in case of server error
       if (req.file && req.file.filename) {
         fs.unlinkSync(path.join('uploads', req.file.filename));
       }
@@ -96,10 +80,6 @@ export const register = (req, res, next) => {
   });
 };
 
-
-
-
-// ========== LOGIN ==========
 export const login = async (req, res, next) => {
   try {
     const { vu_email, password } = req.body;
@@ -108,7 +88,6 @@ export const login = async (req, res, next) => {
       return next(errorHandler(400, 'All fields are required'));
     }
 
-    // ✅ Find user by email
     const user = await User.findOne({ where: { email: vu_email } });
     if (!user) {
       return next(errorHandler(404, 'User not found'));
@@ -119,7 +98,6 @@ export const login = async (req, res, next) => {
       return next(errorHandler(400, 'Invalid password'));
     }
 
-    // ✅ Generate JWT token
     const token = jwt.sign(
       { id: user.id, role: user.role },
       process.env.JWT_SECRET,

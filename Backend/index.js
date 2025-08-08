@@ -8,7 +8,6 @@ import userRoutes from './routes/userRoutes.js';
 import { connectDB } from './db/mysql.js';
 import User from './models/User.js';
 
-
 dotenv.config();
 
 const app = express();
