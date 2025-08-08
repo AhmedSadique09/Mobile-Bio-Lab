@@ -154,5 +154,23 @@ export const getUser = async (req, res, next) => {
       next(error);
     }
   };
+
+  export const activateUser = async (req, res, next) => {
+    try {
+      const vuId = req.params.vuId;
+  
+      const user = await User.findOne({ where: { vuId } });
+      if (!user) return next(errorHandler(404, 'User not found'));
+  
+      if (!user.isVerified) {
+        user.isVerified = true;
+        await user.save();
+      }
+  
+      return res.status(200).json('Account successfully activated. You can now log in.');
+    } catch (error) {
+      next(error);
+    }
+  };
   
   
