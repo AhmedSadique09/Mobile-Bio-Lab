@@ -13,8 +13,13 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
+app.use(cors({
+  origin: 'http://localhost:5173', // frontend ka URL
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
+}));
+
 // Middlewares
-app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(path.resolve(), 'uploads')));
@@ -29,7 +34,7 @@ app.use('/api/users', userRoutes);
 connectDB();
 
 // Sync MySQL models
-User.sync()  // 👈 bas itna rakh do
+User.sync() 
   .then(() => {
     console.log('🧩 User table synced successfully.');
   })

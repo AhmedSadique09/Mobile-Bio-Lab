@@ -11,7 +11,8 @@ const User = sequelize.define('User', {
   role: DataTypes.ENUM('Student', 'Researcher', 'Technician', 'Admin'),
   city: DataTypes.STRING,
   profilePicture: DataTypes.STRING,
-  isVerified: { type: DataTypes.BOOLEAN, defaultValue: false }
+  isVerified: { type: DataTypes.BOOLEAN, defaultValue: false },
+  isActivated: { type: DataTypes.BOOLEAN, defaultValue: false }
 });
 
 export default User;

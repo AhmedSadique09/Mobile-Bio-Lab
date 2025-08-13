@@ -31,6 +31,10 @@ export const updateProfileByUser = (req, res, next) => {
       const user = await User.findByPk(userId);
       if (!user) return next(errorHandler(404, 'User not found'));
 
+      if (profilePicture && user.profilePicture){
+        fs.unlinkSync(path.join('uploads', user.profilePicture));
+      }
+
       if (newPassword) {
         if (!oldPassword) {
           return next(errorHandler(400, 'Old password is required'));
@@ -100,13 +104,20 @@ export const getUsers = async (req, res, next) => {
       offset: startIndex,
       limit: limit,
       order: [['createdAt', sortDirection]],
+      where: {
+        role: { [Op.ne]: 'Admin' } // ✅ Admin ko exclude kiya
+      },
       attributes: { exclude: ['password'] }
     });
 
-    // ✅ Total user count
-    const totalUsers = await User.count();
+    // ✅ Total user count (Admin ko exclude karke)
+    const totalUsers = await User.count({
+      where: {
+        role: { [Op.ne]: 'Admin' }
+      }
+    });
 
-    // ✅ Last month count
+    // ✅ Last month count (Admin ko exclude karke)
     const now = new Date();
     const oneMonthAgo = new Date(
       now.getFullYear(),
@@ -118,7 +129,8 @@ export const getUsers = async (req, res, next) => {
       where: {
         createdAt: {
           [Op.gte]: oneMonthAgo
-        }
+        },
+        role: { [Op.ne]: 'Admin' }
       }
     });
 
@@ -132,6 +144,7 @@ export const getUsers = async (req, res, next) => {
     next(error);
   }
 };
+
 
 export const getUser = async (req, res, next) => {
   try {
@@ -162,18 +175,33 @@ export const activateUser = async (req, res, next) => {
     const vuId = req.params.vuId;
 
     const user = await User.findOne({ where: { vuId } });
-    if (!user) return next(errorHandler(404, 'User not found'));
+    if (!user) {
+      return next(errorHandler(404, 'User not found'));
+    }
 
-    if (!user.isVerified) {
+    // ✅ Agar already activated nahi hai to activate karo
+    if (!user.isVerified || !user.isActivated) {
       user.isVerified = true;
+      user.isActivated = true;
       await user.save();
     }
 
-    return res.status(200).json('Account successfully activated. You can now log in.');
+    return res.status(200).json({
+      message: 'Account successfully activated.',
+      user: {
+        id: user.id,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+        isVerified: user.isVerified,
+        isActivated: user.isActivated
+      }
+    });
   } catch (error) {
     next(error);
   }
 };
+
 
 export const exportOwnProfileToPDF = async (req, res, next) => {
   try {

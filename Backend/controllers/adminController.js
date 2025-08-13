@@ -33,7 +33,12 @@ export const updateUserByAdmin = (req, res, next) => {
       const updates = {};
       if (email) updates.email = email;
       if (city) updates.city = city;
-      if (profilePicture) updates.profilePicture = profilePicture;
+      if (profilePicture) {
+        const oldUser = await User.findByPk(userId);
+        if (oldUser && oldUser.profilePicture) {
+          fs.unlinkSync(path.join('uploads', oldUser.profilePicture));
+        }
+      } updates.profilePicture = profilePicture;
 
       const [updated] = await User.update(updates, { where: { id: userId } });
 
@@ -107,7 +112,8 @@ export const sendActivationEmail = async (req, res, next) => {
     const user = await User.findByPk(userId);
     if (!user) return next(errorHandler(404, 'User not found'));
 
-    const activationLink = `http://localhost:3000/api/users/activate/${user.vuId}`;
+    // ✅ Frontend route pe redirect karo, frontend ActivateAccount component backend call karega
+    const activationLink = `http://localhost:5173/activate/${user.vuId}`;
     const activationText = `Activate Now ${user.vuId}`;
 
     const transporter = nodemailer.createTransport({
@@ -128,6 +134,7 @@ export const sendActivationEmail = async (req, res, next) => {
         <a href="${activationLink}" style="font-size:16px; font-weight:bold;">
           ${activationText}
         </a>
+        <p>After clicking, your account will be automatically activated.</p>
       `
     };
 
@@ -138,6 +145,7 @@ export const sendActivationEmail = async (req, res, next) => {
     next(error);
   }
 };
+
 
 export const exportUsersToPDF = async (req, res, next) => {
   try {
