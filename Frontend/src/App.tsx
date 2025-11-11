@@ -6,7 +6,6 @@ import { ForgotPassword } from './components/ForgotPassword';
 import { VerifyOTP } from './components/VerifyOTP';
 import { ResetPassword } from './components/ResetPassword';
 import { Layout } from './components/Layout';
-import { Dashboard } from './components/Dashboard';
 import { AdminDashboard } from './components/AdminDashboard';
 import { Profile } from './components/Profile';
 import { AddSample } from './components/AddSample';
@@ -42,7 +41,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   }
   
   if (user.role !== 'admin') {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/admin-users" replace />;
   }
   
   return <>{children}</>;
@@ -63,7 +62,7 @@ export default function App() {
       setUser(currentUser);
       // Redirect to appropriate dashboard if on auth routes
       if (['/login', '/register', '/forgot-password', '/verify-otp'].includes(location.pathname)) {
-        navigate(currentUser.role === 'admin' ? '/admin-dashboard' : '/dashboard', { replace: true });
+        navigate(currentUser.role === 'admin' ? '/admin-users' : '/samples', { replace: true });
       }
     } else {
       // Redirect to login if trying to access protected route
@@ -77,7 +76,7 @@ export default function App() {
     const currentUser = getCurrentUser();
     if (currentUser) {
       setUser(currentUser);
-      navigate(currentUser.role === 'admin' ? '/admin-dashboard' : '/dashboard', { replace: true });
+      navigate(currentUser.role === 'admin' ? '/admin-users' : '/samples', { replace: true });
     }
   };
 
@@ -151,22 +150,6 @@ export default function App() {
         } 
       />
 
-      {/* Protected Routes */}
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Layout
-              user={user || getCurrentUser()!}
-              currentPage="dashboard"
-              onNavigate={handleNavigate}
-              onLogout={handleLogout}
-            >
-              <Dashboard user={user || getCurrentUser()!} onNavigate={handleNavigate} />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
       <Route
         path="/admin-dashboard"
         element={

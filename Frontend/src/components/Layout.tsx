@@ -12,8 +12,7 @@ import {
   Bell,
   Menu,
   Users,
-  Activity,
-  Microscope
+  Activity
 } from 'lucide-react';
 import { type User, type Notification } from '../types';
 import { getNotifications, markNotificationAsRead } from '../lib/storage';
@@ -51,15 +50,13 @@ export function Layout({ user, currentPage, onNavigate, onLogout, children }: La
 
   const menuItems = user.role === 'admin' ? [
     { id: 'admin-dashboard', label: 'Admin Dashboard', icon: LayoutDashboard },
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'admin-users', label: 'User Management', icon: Users },
     { id: 'samples', label: 'Samples', icon: Beaker },
     { id: 'bookings', label: 'Bookings', icon: Calendar },
     { id: 'protocols', label: 'Protocols', icon: FileText },
-    { id: 'admin-users', label: 'User Management', icon: Users },
     { id: 'admin-logs', label: 'Activity Logs', icon: Activity },
     { id: 'profile', label: 'Profile', icon: UserIcon }
   ] : [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'samples', label: 'Samples', icon: Beaker },
     { id: 'bookings', label: 'Bookings', icon: Calendar },
     { id: 'protocols', label: 'Protocols', icon: FileText },
@@ -90,7 +87,7 @@ export function Layout({ user, currentPage, onNavigate, onLogout, children }: La
               <SheetContent side="left" className="w-64">
                 <SheetHeader>
                   <SheetTitle className="flex items-center gap-2">
-                    <Microscope className="h-5 w-5 text-blue-600" />
+                    <img src="/logo.png" alt="Mobile Bio Lab" className="h-6 w-6" />
                     Mobile Bio Lab
                   </SheetTitle>
                 </SheetHeader>
@@ -125,7 +122,7 @@ export function Layout({ user, currentPage, onNavigate, onLogout, children }: La
             </Sheet>
 
             <div className="flex items-center gap-2">
-              <Microscope className="h-6 w-6 text-blue-600" />
+              <img src="/logo.png" alt="Mobile Bio Lab" className="h-7 w-7" />
               <h1 className="text-xl">Mobile Bio Lab</h1>
             </div>
           </div>

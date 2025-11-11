@@ -9,6 +9,7 @@ import {
 } from '../controllers/auth.controller.js';
 import { registerValidator, loginValidator, forgotValidator, resetValidator, verifyValidator } from '../validators/auth.validators.js';
 import { validationResult } from 'express-validator';
+import { uploadSingle } from '../middlewares/upload.middleware.js';
 
 const router = express.Router();
 
@@ -29,9 +30,46 @@ const runValidation = (req, res, next) => {
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
- *             $ref: '#/components/schemas/RegisterRequest'
+ *             type: object
+ *             required:
+ *               - firstName
+ *               - lastName
+ *               - email
+ *               - password
+ *               - userType
+ *               - mobile
+ *               - city
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *                 description: First name
+ *               lastName:
+ *                 type: string
+ *                 description: Last name
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email address
+ *               password:
+ *                 type: string
+ *                 minLength: 8
+ *                 description: Password (minimum 8 characters)
+ *               userType:
+ *                 type: string
+ *                 enum: [Student, Researcher, Technician, Admin]
+ *                 description: Type of user
+ *               mobile:
+ *                 type: string
+ *                 description: Mobile number
+ *               city:
+ *                 type: string
+ *                 description: City name
+ *               profilePicture:
+ *                 type: string
+ *                 format: binary
+ *                 description: Profile picture image (jpeg, jpg, png, gif, webp - max 5MB)
  *     responses:
  *       201:
  *         description: User registered successfully
@@ -48,6 +86,12 @@ const runValidation = (req, res, next) => {
  *                   example: Registeration successful
  *                 payload:
  *                   $ref: '#/components/schemas/User'
+ *       400:
+ *         description: File upload error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       422:
  *         description: Validation error
  *         content:
@@ -61,7 +105,7 @@ const runValidation = (req, res, next) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/register', registerValidator, runValidation, register);
+router.post('/register', uploadSingle, registerValidator, runValidation, register);
 
 /**
  * @swagger

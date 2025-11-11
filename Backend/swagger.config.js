@@ -18,6 +18,14 @@ const options = {
       }
     ],
     components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          description: 'Enter JWT token'
+        }
+      },
       schemas: {
         User: {
           type: 'object',
@@ -50,6 +58,10 @@ const options = {
             role: {
               type: 'string',
               description: 'User role'
+            },
+            profilePicture: {
+              type: 'string',
+              description: 'Profile picture URL'
             },
             isVerified: {
               type: 'boolean',

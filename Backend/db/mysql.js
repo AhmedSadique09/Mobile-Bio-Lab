@@ -23,8 +23,7 @@ export const sequelize = new Sequelize(
       underscored: false
     },
     dialectOptions: {
-      charset: 'utf8mb4',
-      collate: 'utf8mb4_unicode_ci'
+      charset: 'utf8mb4'
     }
   }
 );

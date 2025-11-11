@@ -29,6 +29,7 @@ export const register = async (payload) => {
     role: payload.userType || 'Student',
     mobile: payload.mobile,
     city: payload.city,
+    profilePicture: payload.profilePicture || null,
     otp,
     otpExpireAt,
   };

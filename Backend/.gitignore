@@ -78,3 +78,7 @@ Desktop.ini
 .nyc_output/
 coverage/
 
+# Uploaded files (keep folder structure)
+uploads/*
+!uploads/.gitkeep
+
