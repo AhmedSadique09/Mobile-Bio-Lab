@@ -1,5 +1,4 @@
 import { type User, type Sample, type Booking, type Protocol, type Notification, type ActivityLog } from '../types';
-import { mockUsers, mockSamples, mockBookings, mockProtocols, mockNotifications, mockActivityLogs } from './mockData';
 
 const STORAGE_KEYS = {
   CURRENT_USER: 'biolab_current_user',
@@ -11,25 +10,25 @@ const STORAGE_KEYS = {
   ACTIVITY_LOGS: 'biolab_activity_logs'
 };
 
-// Initialize storage with mock data if empty
+// Initialize storage (empty arrays if not exists)
 export const initializeStorage = () => {
   if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(mockUsers));
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify([]));
   }
   if (!localStorage.getItem(STORAGE_KEYS.SAMPLES)) {
-    localStorage.setItem(STORAGE_KEYS.SAMPLES, JSON.stringify(mockSamples));
+    localStorage.setItem(STORAGE_KEYS.SAMPLES, JSON.stringify([]));
   }
   if (!localStorage.getItem(STORAGE_KEYS.BOOKINGS)) {
-    localStorage.setItem(STORAGE_KEYS.BOOKINGS, JSON.stringify(mockBookings));
+    localStorage.setItem(STORAGE_KEYS.BOOKINGS, JSON.stringify([]));
   }
   if (!localStorage.getItem(STORAGE_KEYS.PROTOCOLS)) {
-    localStorage.setItem(STORAGE_KEYS.PROTOCOLS, JSON.stringify(mockProtocols));
+    localStorage.setItem(STORAGE_KEYS.PROTOCOLS, JSON.stringify([]));
   }
   if (!localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS)) {
-    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(mockNotifications));
+    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
   }
   if (!localStorage.getItem(STORAGE_KEYS.ACTIVITY_LOGS)) {
-    localStorage.setItem(STORAGE_KEYS.ACTIVITY_LOGS, JSON.stringify(mockActivityLogs));
+    localStorage.setItem(STORAGE_KEYS.ACTIVITY_LOGS, JSON.stringify([]));
   }
 };
 

@@ -3,13 +3,13 @@ import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Alert, AlertDescription } from './ui/alert';
-import { QrCode, Bluetooth, MapPin, CheckCircle } from 'lucide-react';
-import { type User, type Sample } from '../types';
-import { addSample, addNotification, addActivityLog } from '../lib/storage';
+import { QrCode, Bluetooth, MapPin, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
+import { type User } from '../types';
+import { addNotification, addActivityLog } from '../lib/storage';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
+import sampleService from '../services/sample.service';
 
 interface AddSampleProps {
   user: User;
@@ -26,14 +26,15 @@ export function AddSample({ user, onNavigate }: AddSampleProps) {
     longitude: '',
     temperature: '',
     pH: '',
-    salinity: '',
-    humidity: '',
-    notes: ''
+    salinity: ''
   });
   const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [showBLEDialog, setShowBLEDialog] = useState(false);
   const [bleDevices, setBleDevices] = useState<string[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [gettingLocation, setGettingLocation] = useState(false);
 
   const handleQRScan = () => {
     setShowQRScanner(true);
@@ -66,132 +67,340 @@ export function AddSample({ user, onNavigate }: AddSampleProps) {
   };
 
   const getCurrentLocation = () => {
-    // Simulate getting geolocation
-    const mockLat = (Math.random() * 0.1 + 42.3).toFixed(4);
-    const mockLon = (Math.random() * 0.1 - 71.1).toFixed(4);
-    setFormData({ 
-      ...formData, 
-      latitude: mockLat,
-      longitude: mockLon
-    });
+    if (!navigator.geolocation) {
+      setErrors({ ...errors, latitude: 'Geolocation is not supported by your browser' });
+      return;
+    }
+
+    setGettingLocation(true);
+    setErrors({ ...errors, latitude: '', longitude: '' });
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude.toFixed(6);
+        const lon = position.coords.longitude.toFixed(6);
+        setFormData({ 
+          ...formData, 
+          latitude: lat,
+          longitude: lon
+        });
+        setGettingLocation(false);
+      },
+      (error) => {
+        setGettingLocation(false);
+        let errorMessage = 'Failed to get location';
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = 'Location access denied. Please enable location permissions.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = 'Location information unavailable.';
+            break;
+          case error.TIMEOUT:
+            errorMessage = 'Location request timed out.';
+            break;
+        }
+        setErrors({ ...errors, latitude: errorMessage });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Validation functions
+  const validateField = (name: string, value: string) => {
+    let error = '';
+
+    switch (name) {
+      case 'sampleId':
+        if (!value.trim()) {
+          error = 'Sample ID is required';
+        }
+        break;
+      case 'collectionDate':
+        if (!value) {
+          error = 'Collection date is required';
+        }
+        break;
+      case 'collectionTime':
+        if (!value) {
+          error = 'Collection time is required';
+        }
+        break;
+      case 'sampleType':
+        if (!value) {
+          error = 'Sample type is required';
+        }
+        break;
+      case 'latitude':
+        if (!value.trim()) {
+          error = 'Latitude is required';
+        } else {
+          const lat = parseFloat(value);
+          if (isNaN(lat) || lat < -90 || lat > 90) {
+            error = 'Latitude must be between -90 and 90';
+          }
+        }
+        break;
+      case 'longitude':
+        if (!value.trim()) {
+          error = 'Longitude is required';
+        } else {
+          const lon = parseFloat(value);
+          if (isNaN(lon) || lon < -180 || lon > 180) {
+            error = 'Longitude must be between -180 and 180';
+          }
+        }
+        break;
+      case 'temperature':
+        if (value.trim() && (isNaN(parseFloat(value)) || parseFloat(value) < -50 || parseFloat(value) > 100)) {
+          error = 'Temperature must be between -50 and 100°C';
+        }
+        break;
+      case 'pH':
+        if (value.trim() && (isNaN(parseFloat(value)) || parseFloat(value) < 0 || parseFloat(value) > 14)) {
+          error = 'pH must be between 0 and 14';
+        }
+        break;
+      case 'salinity':
+        if (value.trim() && (isNaN(parseFloat(value)) || parseFloat(value) < 0 || parseFloat(value) > 50)) {
+          error = 'Salinity must be between 0 and 50 ppt';
+        }
+        break;
+    }
+
+    return error;
+  };
+
+  const handleFieldChange = (name: string, value: string) => {
+    setFormData({ ...formData, [name]: value });
+    
+    // Clear error for this field when user starts typing
+    if (errors[name]) {
+      const error = validateField(name, value);
+      setErrors({ ...errors, [name]: error });
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    
+    newErrors.sampleId = validateField('sampleId', formData.sampleId);
+    newErrors.collectionDate = validateField('collectionDate', formData.collectionDate);
+    newErrors.collectionTime = validateField('collectionTime', formData.collectionTime);
+    newErrors.sampleType = validateField('sampleType', formData.sampleType);
+    newErrors.latitude = validateField('latitude', formData.latitude);
+    newErrors.longitude = validateField('longitude', formData.longitude);
+    newErrors.temperature = validateField('temperature', formData.temperature);
+    newErrors.pH = validateField('pH', formData.pH);
+    newErrors.salinity = validateField('salinity', formData.salinity);
+
+    setErrors(newErrors);
+    return !Object.values(newErrors).some(error => error !== '');
+  };
+
+  // Check if all required fields are filled
+  const isFormValid = () => {
+    return (
+      formData.sampleId.trim() !== '' &&
+      formData.collectionDate !== '' &&
+      formData.collectionTime !== '' &&
+      formData.sampleType !== '' &&
+      formData.latitude.trim() !== '' &&
+      formData.longitude.trim() !== '' &&
+      !errors.sampleId &&
+      !errors.collectionDate &&
+      !errors.collectionTime &&
+      !errors.sampleType &&
+      !errors.latitude &&
+      !errors.longitude
+    );
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+    
+    setLoading(true);
 
-    const newSample: Sample = {
-      id: `S${Date.now()}`,
-      sampleId: formData.sampleId,
-      userId: user.id,
-      collectionDate: formData.collectionDate,
-      collectionTime: formData.collectionTime,
-      sampleType: formData.sampleType as any,
-      geolocation: {
+    try {
+      // Send status as 'pending' from frontend to backend
+      const response = await sampleService.createSample({
+        sampleId: formData.sampleId,
+        collectionDate: formData.collectionDate,
+        collectionTime: formData.collectionTime,
+        sampleType: formData.sampleType as 'water' | 'soil' | 'plant' | 'biological-fluids' | 'other',
         latitude: parseFloat(formData.latitude),
-        longitude: parseFloat(formData.longitude)
-      },
-      fieldConditions: {
-        ...(formData.temperature && { temperature: parseFloat(formData.temperature) }),
-        ...(formData.pH && { pH: parseFloat(formData.pH) }),
-        ...(formData.salinity && { salinity: parseFloat(formData.salinity) }),
-        ...(formData.humidity && { humidity: parseFloat(formData.humidity) })
-      },
-      notes: formData.notes || undefined,
-      status: 'pending',
-      createdAt: new Date().toISOString()
-    };
+        longitude: parseFloat(formData.longitude),
+        temperature: formData.temperature ? parseFloat(formData.temperature) : undefined,
+        pH: formData.pH ? parseFloat(formData.pH) : undefined,
+        salinity: formData.salinity ? parseFloat(formData.salinity) : undefined,
+        status: 'pending' // Explicitly send pending status from frontend
+      });
 
-    addSample(newSample);
+      if (response.statusCode === 201) {
+        addNotification({
+          id: Date.now().toString(),
+          userId: user.id,
+          title: 'Sample Added',
+          message: `New sample ${formData.sampleId} has been created`,
+          type: 'sample',
+          read: false,
+          createdAt: new Date().toISOString()
+        });
 
-    addNotification({
-      id: Date.now().toString(),
-      userId: user.id,
-      title: 'Sample Added',
-      message: `New sample ${newSample.sampleId} has been created`,
-      type: 'sample',
-      read: false,
-      createdAt: new Date().toISOString()
-    });
+        addActivityLog({
+          id: Date.now().toString(),
+          userId: user.id,
+          action: 'Sample Created',
+          details: `Created sample ${formData.sampleId}`,
+          timestamp: new Date().toISOString()
+        });
 
-    addActivityLog({
-      id: Date.now().toString(),
-      userId: user.id,
-      action: 'Sample Created',
-      details: `Created sample ${newSample.sampleId}`,
-      timestamp: new Date().toISOString()
-    });
-
-    setSuccess(true);
-    setTimeout(() => {
-      onNavigate('samples');
-    }, 2000);
+        setSuccess(true);
+        setTimeout(() => {
+          setLoading(false);
+          onNavigate('samples');
+        }, 2000);
+      } else {
+        setLoading(false);
+        setErrors({ ...errors, submit: response.message || 'Failed to create sample' });
+      }
+    } catch (err: any) {
+      console.error('Error creating sample:', err);
+      setLoading(false);
+      const errorMessage = err?.response?.data?.message || err?.message || 'Failed to create sample. Please try again.';
+      setErrors({ ...errors, submit: errorMessage });
+    }
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-3xl mb-2">Add New Sample</h1>
-        <p className="text-gray-600">Record a new biological sample collection</p>
+    <div className="max-w-4xl mx-auto space-y-6 pb-8">
+      <div className="space-y-1">
+        <h1 className="text-3xl font-semibold text-gray-900">Add New Sample</h1>
+        <p className="text-gray-500 text-sm">Record a new biological sample collection</p>
       </div>
 
       {success && (
-        <Alert>
-          <CheckCircle className="h-4 w-4" />
-          <AlertDescription>Sample added successfully! Redirecting...</AlertDescription>
+        <Alert className="border-green-200 bg-green-50 shadow-sm">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-green-800">Sample added successfully! Redirecting...</AlertDescription>
         </Alert>
       )}
 
-      <Card>
-        <CardContent className="pt-6">
+      {errors.submit && (
+        <Alert className="border-red-200 bg-red-50 shadow-sm">
+          <AlertCircle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">{errors.submit}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Quick Actions */}
+      <div className="flex gap-3">
+        <Button 
+          type="button" 
+          variant="outline" 
+          onClick={handleQRScan} 
+          className="hover:bg-gray-50 transition-colors"
+          style={{ border: '1px solid #d1d5db' }}
+        >
+          <QrCode className="h-4 w-4 mr-2" />
+          Scan QR
+        </Button>
+        <Button 
+          type="button" 
+          variant="outline" 
+          onClick={handleBLEConnect} 
+          className="hover:bg-gray-50 transition-colors"
+          style={{ border: '1px solid #d1d5db' }}
+        >
+          <Bluetooth className="h-4 w-4 mr-2" />
+          Connect BLE Device
+        </Button>
+      </div>
+
+      <Card className="shadow-md border-gray-200">
+        <CardContent className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Sample ID and QR Scanner */}
+            {/* Sample ID */}
             <div className="space-y-2">
-              <Label htmlFor="sampleId">Sample ID *</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="sampleId"
-                  value={formData.sampleId}
-                  onChange={(e) => setFormData({ ...formData, sampleId: e.target.value })}
-                  placeholder="e.g., WTR-2025-001"
-                  required
-                />
-                <Button type="button" variant="outline" onClick={handleQRScan}>
-                  <QrCode className="h-4 w-4 mr-2" />
-                  Scan QR
-                </Button>
-              </div>
+              <Label htmlFor="sampleId" className="text-sm font-medium text-gray-700">Sample ID *</Label>
+              <Input
+                id="sampleId"
+                value={formData.sampleId}
+                onChange={(e) => handleFieldChange('sampleId', e.target.value)}
+                onBlur={(e) => {
+                  const error = validateField('sampleId', e.target.value);
+                  setErrors({ ...errors, sampleId: error });
+                }}
+                placeholder="e.g., WTR-2025-001"
+                required
+                className={`focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.sampleId ? 'border-red-500' : ''}`}
+                style={{ border: errors.sampleId ? '1px solid #ef4444' : '1px solid #d1d5db' }}
+              />
+              {errors.sampleId && <p className="text-sm text-red-600">{errors.sampleId}</p>}
             </div>
 
             {/* Date and Time */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="collectionDate">Collection Date *</Label>
+                <Label htmlFor="collectionDate" className="text-sm font-medium text-gray-700">Collection Date *</Label>
                 <Input
                   id="collectionDate"
                   type="date"
                   value={formData.collectionDate}
-                  onChange={(e) => setFormData({ ...formData, collectionDate: e.target.value })}
+                  onChange={(e) => handleFieldChange('collectionDate', e.target.value)}
+                  onBlur={(e) => {
+                    const error = validateField('collectionDate', e.target.value);
+                    setErrors({ ...errors, collectionDate: error });
+                  }}
                   required
+                  className={`focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.collectionDate ? 'border-red-500' : ''}`}
+                  style={{ border: errors.collectionDate ? '1px solid #ef4444' : '1px solid #d1d5db' }}
                 />
+                {errors.collectionDate && <p className="text-sm text-red-600">{errors.collectionDate}</p>}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="collectionTime">Collection Time *</Label>
+                <Label htmlFor="collectionTime" className="text-sm font-medium text-gray-700">Collection Time *</Label>
                 <Input
                   id="collectionTime"
                   type="time"
                   value={formData.collectionTime}
-                  onChange={(e) => setFormData({ ...formData, collectionTime: e.target.value })}
+                  onChange={(e) => handleFieldChange('collectionTime', e.target.value)}
+                  onBlur={(e) => {
+                    const error = validateField('collectionTime', e.target.value);
+                    setErrors({ ...errors, collectionTime: error });
+                  }}
                   required
+                  className={`focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.collectionTime ? 'border-red-500' : ''}`}
+                  style={{ border: errors.collectionTime ? '1px solid #ef4444' : '1px solid #d1d5db' }}
                 />
+                {errors.collectionTime && <p className="text-sm text-red-600">{errors.collectionTime}</p>}
               </div>
             </div>
 
             {/* Sample Type */}
             <div className="space-y-2">
-              <Label htmlFor="sampleType">Sample Type *</Label>
-              <Select value={formData.sampleType} onValueChange={(value: any) => setFormData({ ...formData, sampleType: value })}>
-                <SelectTrigger>
+              <Label htmlFor="sampleType" className="text-sm font-medium text-gray-700">Sample Type *</Label>
+              <Select 
+                value={formData.sampleType} 
+                onValueChange={(value: any) => {
+                  handleFieldChange('sampleType', value);
+                  const error = validateField('sampleType', value);
+                  setErrors({ ...errors, sampleType: error });
+                }}
+              >
+                <SelectTrigger 
+                  className={`focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.sampleType ? 'border-red-500' : ''}`} 
+                  style={{ border: errors.sampleType ? '1px solid #ef4444' : '1px solid #d1d5db' }}
+                >
                   <SelectValue placeholder="Select sample type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -201,109 +410,152 @@ export function AddSample({ user, onNavigate }: AddSampleProps) {
                   <SelectItem value="biological-fluids">Biological Fluids</SelectItem>
                 </SelectContent>
               </Select>
+              {errors.sampleType && <p className="text-sm text-red-600">{errors.sampleType}</p>}
             </div>
 
             {/* Geolocation */}
             <div className="space-y-2">
-              <Label>Geolocation *</Label>
+              <Label className="text-sm font-medium text-gray-700">Geolocation *</Label>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                <Input
-                  placeholder="Latitude"
-                  value={formData.latitude}
-                  onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
-                  required
-                />
-                <Input
-                  placeholder="Longitude"
-                  value={formData.longitude}
-                  onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
-                  required
-                />
-                <Button type="button" variant="outline" onClick={getCurrentLocation}>
-                  <MapPin className="h-4 w-4 mr-2" />
-                  Get Location
+                <div className="space-y-1">
+                  <Input
+                    placeholder="Latitude"
+                    value={formData.latitude}
+                    onChange={(e) => handleFieldChange('latitude', e.target.value)}
+                    onBlur={(e) => {
+                      const error = validateField('latitude', e.target.value);
+                      setErrors({ ...errors, latitude: error });
+                    }}
+                    required
+                    className={`focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.latitude ? 'border-red-500' : ''}`}
+                    style={{ border: errors.latitude ? '1px solid #ef4444' : '1px solid #d1d5db' }}
+                  />
+                  {errors.latitude && <p className="text-xs text-red-600">{errors.latitude}</p>}
+                </div>
+                <div className="space-y-1">
+                  <Input
+                    placeholder="Longitude"
+                    value={formData.longitude}
+                    onChange={(e) => handleFieldChange('longitude', e.target.value)}
+                    onBlur={(e) => {
+                      const error = validateField('longitude', e.target.value);
+                      setErrors({ ...errors, longitude: error });
+                    }}
+                    required
+                    className={`focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.longitude ? 'border-red-500' : ''}`}
+                    style={{ border: errors.longitude ? '1px solid #ef4444' : '1px solid #d1d5db' }}
+                  />
+                  {errors.longitude && <p className="text-xs text-red-600">{errors.longitude}</p>}
+                </div>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={getCurrentLocation}
+                  disabled={gettingLocation}
+                  className="hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  style={{ border: '1px solid #d1d5db' }}
+                >
+                  {gettingLocation ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Getting...
+                    </>
+                  ) : (
+                    <>
+                      <MapPin className="h-4 w-4 mr-2" />
+                      Get Location
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
 
             {/* Field Conditions */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label>Field Conditions</Label>
-                <Button type="button" variant="outline" size="sm" onClick={handleBLEConnect}>
-                  <Bluetooth className="h-4 w-4 mr-2" />
-                  Connect BLE Device
-                </Button>
-              </div>
+            <div className="space-y-4 pt-2 border-t border-gray-100">
+              <Label className="text-sm font-medium text-gray-700">Field Conditions</Label>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="temperature">Temperature (°C)</Label>
+                  <Label htmlFor="temperature" className="text-sm font-medium text-gray-700">Temperature (°C)</Label>
                   <Input
                     id="temperature"
                     type="number"
                     step="0.1"
                     placeholder="e.g., 22.5"
                     value={formData.temperature}
-                    onChange={(e) => setFormData({ ...formData, temperature: e.target.value })}
+                    onChange={(e) => handleFieldChange('temperature', e.target.value)}
+                    onBlur={(e) => {
+                      const error = validateField('temperature', e.target.value);
+                      setErrors({ ...errors, temperature: error });
+                    }}
+                    className={`focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.temperature ? 'border-red-500' : ''}`}
+                    style={{ border: errors.temperature ? '1px solid #ef4444' : '1px solid #d1d5db' }}
                   />
+                  {errors.temperature && <p className="text-xs text-red-600">{errors.temperature}</p>}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="pH">pH Level</Label>
+                  <Label htmlFor="pH" className="text-sm font-medium text-gray-700">pH Level</Label>
                   <Input
                     id="pH"
                     type="number"
                     step="0.1"
                     placeholder="e.g., 7.2"
                     value={formData.pH}
-                    onChange={(e) => setFormData({ ...formData, pH: e.target.value })}
+                    onChange={(e) => handleFieldChange('pH', e.target.value)}
+                    onBlur={(e) => {
+                      const error = validateField('pH', e.target.value);
+                      setErrors({ ...errors, pH: error });
+                    }}
+                    className={`focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.pH ? 'border-red-500' : ''}`}
+                    style={{ border: errors.pH ? '1px solid #ef4444' : '1px solid #d1d5db' }}
                   />
+                  {errors.pH && <p className="text-xs text-red-600">{errors.pH}</p>}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="salinity">Salinity (ppt)</Label>
+                  <Label htmlFor="salinity" className="text-sm font-medium text-gray-700">Salinity (ppt)</Label>
                   <Input
                     id="salinity"
                     type="number"
                     step="0.01"
                     placeholder="e.g., 0.5"
                     value={formData.salinity}
-                    onChange={(e) => setFormData({ ...formData, salinity: e.target.value })}
+                    onChange={(e) => handleFieldChange('salinity', e.target.value)}
+                    onBlur={(e) => {
+                      const error = validateField('salinity', e.target.value);
+                      setErrors({ ...errors, salinity: error });
+                    }}
+                    className={`focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.salinity ? 'border-red-500' : ''}`}
+                    style={{ border: errors.salinity ? '1px solid #ef4444' : '1px solid #d1d5db' }}
                   />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="humidity">Humidity (%)</Label>
-                  <Input
-                    id="humidity"
-                    type="number"
-                    step="1"
-                    placeholder="e.g., 65"
-                    value={formData.humidity}
-                    onChange={(e) => setFormData({ ...formData, humidity: e.target.value })}
-                  />
+                  {errors.salinity && <p className="text-xs text-red-600">{errors.salinity}</p>}
                 </div>
               </div>
             </div>
 
-            {/* Notes */}
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                placeholder="Additional observations or notes about the sample..."
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                rows={4}
-              />
-            </div>
-
-            <div className="flex gap-3">
-              <Button type="submit" className="flex-1">
-                Add Sample
+            <div className="flex gap-3 pt-6 border-t border-gray-200">
+              <Button 
+                type="submit" 
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!isFormValid() || loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  'Add Sample'
+                )}
               </Button>
-              <Button type="button" variant="outline" onClick={() => onNavigate('samples')}>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => onNavigate('samples')} 
+                className="hover:bg-gray-50 transition-colors"
+                style={{ border: '1px solid #d1d5db' }}
+              >
                 Cancel
               </Button>
             </div>
