@@ -7,12 +7,12 @@ import {
   Beaker, 
   Calendar, 
   FileText, 
-  User as UserIcon, 
   LogOut,
   Bell,
   Menu,
   Users,
-  Activity
+  Activity,
+  Settings
 } from 'lucide-react';
 import { type User, type Notification } from '../types';
 import { getNotifications, markNotificationAsRead } from '../lib/storage';
@@ -55,12 +55,12 @@ export function Layout({ user, currentPage, onNavigate, onLogout, children }: La
     { id: 'bookings', label: 'Bookings', icon: Calendar },
     { id: 'protocols', label: 'Protocols', icon: FileText },
     { id: 'admin-logs', label: 'Activity Logs', icon: Activity },
-    { id: 'profile', label: 'Profile', icon: UserIcon }
+    { id: 'profile', label: 'Settings', icon: Settings }
   ] : [
     { id: 'samples', label: 'Samples', icon: Beaker },
     { id: 'bookings', label: 'Bookings', icon: Calendar },
     { id: 'protocols', label: 'Protocols', icon: FileText },
-    { id: 'profile', label: 'Profile', icon: UserIcon }
+    { id: 'profile', label: 'Settings', icon: Settings }
   ];
 
   const getNotificationIcon = (type: string) => {
@@ -193,16 +193,19 @@ export function Layout({ user, currentPage, onNavigate, onLogout, children }: La
                   <div className="border-b pb-3">
                     <p className="font-medium">{user.firstName} {user.lastName}</p>
                     <p className="text-xs text-gray-600">{user.email}</p>
-                    <Badge className="mt-2" variant="secondary">{user.role}</Badge>
+                    <Badge 
+                      className="mt-2" 
+                      style={{
+                        backgroundColor: user.role === 'student' ? '#3b82f6' : 
+                                       user.role === 'researcher' ? '#10b981' : 
+                                       user.role === 'technician' ? '#f59e0b' : 
+                                       '#6b7280',
+                        color: 'white'
+                      }}
+                    >
+                      {user.role}
+                    </Badge>
                   </div>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    onClick={() => onNavigate('profile')}
-                  >
-                    <UserIcon className="h-4 w-4 mr-2" />
-                    Profile Settings
-                  </Button>
                   <Button
                     variant="ghost"
                     className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"

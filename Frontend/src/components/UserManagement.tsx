@@ -601,7 +601,8 @@ export function UserManagement({ currentUser }: UserManagementProps) {
                 });
               }}
               disabled={saving}
-              className="flex-1 text-black border-gray-300 hover:bg-gray-50"
+              className="flex-1 text-black hover:bg-gray-50"
+              style={{ border: '1px solid #d1d5db' }}
             >
               Cancel
             </Button>

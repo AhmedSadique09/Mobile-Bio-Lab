@@ -67,9 +67,10 @@ export function Login({ onLogin }: LoginProps) {
             email: backendUser.email,
             firstName: backendUser.firstName,
             lastName: backendUser.lastName,
-            mobile: '',
+            mobile: backendUser.mobile || '',
             role: backendUser.role.toLowerCase() as 'student' | 'researcher' | 'technician' | 'admin',
-            city: '',
+            city: backendUser.city || '',
+            profilePicture: backendUser.profilePicture ? `http://localhost:4000${backendUser.profilePicture}` : '',
             createdAt: new Date().toISOString(),
           };
           

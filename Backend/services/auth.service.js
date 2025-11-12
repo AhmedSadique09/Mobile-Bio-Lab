@@ -101,7 +101,10 @@ export const login = async (loginDto) => {
           firstName: user.firstName,
           lastName: user.lastName,
           email: user.email,
+          mobile: user.mobile || '',
+          city: user.city || '',
           role: user.role,
+          profilePicture: user.profilePicture || null,
           isVerified: user.isVerified
         },
         token: null
@@ -126,7 +129,10 @@ export const login = async (loginDto) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
+        mobile: user.mobile || '',
+        city: user.city || '',
         role: user.role,
+        profilePicture: user.profilePicture || null,
         isVerified: user.isVerified
       },
       token
@@ -228,7 +234,10 @@ export const verifyEmail = async ({ email, otp }) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
+        mobile: user.mobile || '',
+        city: user.city || '',
         role: user.role,
+        profilePicture: user.profilePicture || null,
         isVerified: true
       },
       token

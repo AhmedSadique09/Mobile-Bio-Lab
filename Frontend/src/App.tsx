@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Login } from './components/Login';
 import { Register } from './components/Register';
@@ -51,26 +51,30 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const hasInitialized = useRef(false);
 
   useEffect(() => {
-    // Initialize storage with mock data
-    initializeStorage();
-
-    // Check if user is already logged in
-    const currentUser = getCurrentUser();
-    if (currentUser) {
-      setUser(currentUser);
-      // Redirect to appropriate dashboard if on auth routes
-      if (['/login', '/register', '/forgot-password', '/verify-otp'].includes(location.pathname)) {
-        navigate(currentUser.role === 'admin' ? '/admin-users' : '/samples', { replace: true });
-      }
-    } else {
-      // Redirect to login if trying to access protected route
-      if (!['/login', '/register', '/forgot-password', '/verify-otp', '/reset-password'].includes(location.pathname)) {
+    // Initialize storage with mock data - only once
+    if (!hasInitialized.current) {
+      initializeStorage();
+      hasInitialized.current = true;
+      
+      // Check if user is already logged in - only on initial mount
+      const currentUser = getCurrentUser();
+      if (currentUser) {
+        setUser(currentUser);
+        // If on auth route, redirect to dashboard
+        const authRoutes = ['/login', '/register', '/forgot-password', '/verify-otp', '/reset-password'];
+        if (authRoutes.includes(location.pathname)) {
+          const targetRoute = currentUser.role === 'admin' ? '/admin-users' : '/samples';
+          navigate(targetRoute, { replace: true });
+        }
+      } else if (location.pathname === '/') {
+        // If no user and on root, redirect to login
         navigate('/login', { replace: true });
       }
     }
-  }, [navigate, location.pathname]);
+  }, []); // Empty dependency array - only run on mount
 
   const handleLogin = () => {
     const currentUser = getCurrentUser();
