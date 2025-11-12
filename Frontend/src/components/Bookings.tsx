@@ -7,104 +7,189 @@ import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Alert, AlertDescription } from './ui/alert';
-import { Calendar, Clock, CheckCircle, X, Check } from 'lucide-react';
-import { type User, type Booking } from '../types';
-import { getBookings, addBooking, updateBooking, addNotification, addActivityLog, getUsers } from '../lib/storage';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { Calendar, Clock, CheckCircle, X, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { type User } from '../types';
+import bookingService from '../services/booking.service';
+
+interface BookingResponse {
+  id: number;
+  userId: number;
+  date: string;
+  timeSlot: string;
+  purpose: string;
+  status: 'pending' | 'approved' | 'rejected' | 'completed';
+  createdAt: string;
+  updatedAt: string;
+  User?: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    email: string;
+    mobile: string;
+    city: string;
+    role: string;
+    profilePicture: string | null;
+  };
+}
 
 interface BookingsProps {
   user: User;
 }
 
 export function Bookings({ user }: BookingsProps) {
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookings, setBookings] = useState<BookingResponse[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingBookingId, setEditingBookingId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     date: '',
     timeSlot: '',
     purpose: ''
   });
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const timeSlots = [
-    '09:00 - 11:00',
-    '11:00 - 13:00',
-    '13:00 - 15:00',
-    '15:00 - 17:00',
-    '17:00 - 19:00'
-  ];
+  // Generate 30-minute time slots for 24 hours (12 AM to 11:30 PM)
+  const generateTimeSlots = () => {
+    const slots = [];
+    for (let hour = 0; hour < 24; hour++) {
+      for (let minute = 0; minute < 60; minute += 30) {
+        const startHour = hour;
+        const startMinute = minute;
+        const endMinute = minute + 30;
+        const endHour = endMinute >= 60 ? hour + 1 : hour;
+        const finalEndMinute = endMinute >= 60 ? endMinute - 60 : endMinute;
+
+        const formatTime = (h: number, m: number) => {
+          const period = h >= 12 ? 'PM' : 'AM';
+          const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+          return `${displayHour}:${m.toString().padStart(2, '0')} ${period}`;
+        };
+
+        const startTime = formatTime(startHour, startMinute);
+        const endTime = formatTime(endHour >= 24 ? endHour - 24 : endHour, finalEndMinute);
+        slots.push(`${startTime} - ${endTime}`);
+      }
+    }
+    return slots;
+  };
+
+  const timeSlots = generateTimeSlots();
 
   useEffect(() => {
     loadBookings();
   }, [user]);
 
-  const loadBookings = () => {
-    const allBookings = getBookings();
-    const userBookings = user.role === 'admin' 
-      ? allBookings 
-      : allBookings.filter(b => b.userId === user.id);
-    setBookings(userBookings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const newBooking: Booking = {
-      id: `B${Date.now()}`,
-      userId: user.id,
-      date: formData.date,
-      timeSlot: formData.timeSlot,
-      purpose: formData.purpose,
-      status: 'pending',
-      createdAt: new Date().toISOString()
-    };
-
-    addBooking(newBooking);
-
-    addNotification({
-      id: Date.now().toString(),
-      userId: user.id,
-      title: 'Booking Request Submitted',
-      message: `Your booking request for ${formData.date} has been submitted for approval`,
-      type: 'booking',
-      read: false,
-      createdAt: new Date().toISOString()
-    });
-
-    addActivityLog({
-      id: Date.now().toString(),
-      userId: user.id,
-      action: 'Booking Created',
-      details: `Created booking for ${formData.date}, ${formData.timeSlot}`,
-      timestamp: new Date().toISOString()
-    });
-
-    setSuccess(true);
-    setFormData({ date: '', timeSlot: '', purpose: '' });
-    loadBookings();
-    
-    setTimeout(() => {
-      setSuccess(false);
-      setShowForm(false);
-    }, 2000);
-  };
-
-  const handleStatusUpdate = (bookingId: string, newStatus: 'approved' | 'rejected') => {
-    updateBooking(bookingId, { status: newStatus });
-    
-    const booking = bookings.find(b => b.id === bookingId);
-    if (booking) {
-      addNotification({
-        id: Date.now().toString(),
-        userId: booking.userId,
-        title: `Booking ${newStatus}`,
-        message: `Your booking for ${booking.date} has been ${newStatus}`,
-        type: 'booking',
-        read: false,
-        createdAt: new Date().toISOString()
-      });
+  const loadBookings = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await bookingService.getBookings();
+      if (response.statusCode === 200 && response.payload) {
+        setBookings(response.payload);
+      } else {
+        setError(response.message || 'Failed to load bookings');
+      }
+    } catch (err: any) {
+      console.error('Error loading bookings:', err);
+      setError(err?.response?.data?.message || err?.message || 'Failed to load bookings');
+    } finally {
+      setLoading(false);
     }
+  };
 
-    loadBookings();
+  const handleEditClick = (booking: BookingResponse) => {
+    if (user.role === 'admin') return; // Admin cannot edit bookings
+    
+    setEditingBookingId(booking.id);
+    setFormData({
+      date: booking.date,
+      timeSlot: booking.timeSlot,
+      purpose: booking.purpose
+    });
+    setShowForm(true);
+    setError('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingBookingId(null);
+    setFormData({ date: '', timeSlot: '', purpose: '' });
+    setShowForm(false);
+    setError('');
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+    setSuccess(false);
+
+    try {
+      let response;
+      if (editingBookingId) {
+        // Update existing booking
+        response = await bookingService.updateBooking(editingBookingId, {
+          date: formData.date,
+          timeSlot: formData.timeSlot,
+          purpose: formData.purpose
+        });
+
+        if (response.statusCode === 200) {
+          setSuccess(true);
+          setFormData({ date: '', timeSlot: '', purpose: '' });
+          setEditingBookingId(null);
+          loadBookings();
+          setTimeout(() => {
+            setSuccess(false);
+            setShowForm(false);
+          }, 2000);
+        } else {
+          setError(response.message || 'Failed to update booking');
+        }
+      } else {
+        // Create new booking
+        response = await bookingService.createBooking({
+          date: formData.date,
+          timeSlot: formData.timeSlot,
+          purpose: formData.purpose
+        });
+
+        if (response.statusCode === 201) {
+          setSuccess(true);
+          setFormData({ date: '', timeSlot: '', purpose: '' });
+          loadBookings();
+          setTimeout(() => {
+            setSuccess(false);
+            setShowForm(false);
+          }, 2000);
+        } else {
+          setError(response.message || 'Failed to submit booking request');
+        }
+      }
+    } catch (err: any) {
+      console.error('Error saving booking:', err);
+      const errorMessage = err?.response?.data?.message || err?.message || 
+        (editingBookingId ? 'Failed to update booking' : 'Failed to submit booking request');
+      setError(errorMessage);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleStatusUpdate = async (bookingId: number, newStatus: 'approved' | 'rejected') => {
+    try {
+      const response = await bookingService.updateBookingStatus(bookingId, newStatus);
+      if (response.statusCode === 200) {
+        loadBookings();
+      } else {
+        setError(response.message || 'Failed to update booking status');
+      }
+    } catch (err: any) {
+      console.error('Error updating booking status:', err);
+      setError(err?.response?.data?.message || err?.message || 'Failed to update booking status');
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -117,10 +202,11 @@ export function Bookings({ user }: BookingsProps) {
     }
   };
 
-  const getUserName = (userId: string) => {
-    const users = getUsers();
-    const bookingUser = users.find(u => u.id === userId);
-    return bookingUser ? `${bookingUser.firstName} ${bookingUser.lastName}` : 'Unknown';
+  const getUserName = (booking: BookingResponse) => {
+    if (booking.User) {
+      return `${booking.User.firstName} ${booking.User.lastName}`;
+    }
+    return 'Unknown';
   };
 
   return (
@@ -128,9 +214,13 @@ export function Bookings({ user }: BookingsProps) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl mb-2">Lab Bookings</h1>
-          <p className="text-gray-600">Reserve time slots for mobile bio lab access</p>
+          <p className="text-gray-600">
+            {user.role === 'admin' 
+              ? 'View and manage all booking requests' 
+              : 'Reserve time slots for mobile bio lab access'}
+          </p>
         </div>
-        {!showForm && (
+        {user.role !== 'admin' && !showForm && (
           <Button onClick={() => setShowForm(true)}>
             <Calendar className="h-4 w-4 mr-2" />
             Book a Slot
@@ -138,19 +228,32 @@ export function Bookings({ user }: BookingsProps) {
         )}
       </div>
 
+      {error && (
+        <Alert variant="destructive" className="border-red-200">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       {/* Booking Form */}
       {showForm && (
         <Card>
           <CardHeader>
-            <CardTitle>New Booking Request</CardTitle>
-            <CardDescription>Fill in the details to reserve a lab slot</CardDescription>
+            <CardTitle>{editingBookingId ? 'Edit Booking' : 'New Booking Request'}</CardTitle>
+            <CardDescription>
+              {editingBookingId 
+                ? 'Update your booking details. Note: If the new slot is already booked, you will receive an error.' 
+                : 'Fill in the details to reserve a lab slot'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {success && (
-                <Alert>
-                  <CheckCircle className="h-4 w-4" />
-                  <AlertDescription>Booking request submitted successfully!</AlertDescription>
+                <Alert className="border-green-200 bg-green-50">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800">
+                    {editingBookingId ? 'Booking updated successfully!' : 'Booking request submitted successfully!'}
+                  </AlertDescription>
                 </Alert>
               )}
 
@@ -195,10 +298,17 @@ export function Bookings({ user }: BookingsProps) {
               </div>
 
               <div className="flex gap-3">
-                <Button type="submit" className="flex-1">
-                  Submit Request
+                <Button type="submit" className="flex-1" disabled={submitting}>
+                  {submitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      {editingBookingId ? 'Updating...' : 'Submitting...'}
+                    </>
+                  ) : (
+                    editingBookingId ? 'Update Booking' : 'Submit Request'
+                  )}
                 </Button>
-                <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
+                <Button type="button" variant="outline" onClick={handleCancelEdit} disabled={submitting}>
                   Cancel
                 </Button>
               </div>
@@ -208,91 +318,127 @@ export function Bookings({ user }: BookingsProps) {
       )}
 
       {/* Bookings List */}
-      <div className="grid grid-cols-1 gap-4">
-        {bookings.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-500 mb-4">No bookings yet</p>
-              {!showForm && (
-                <Button onClick={() => setShowForm(true)}>
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Book Your First Slot
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          bookings.map((booking) => (
-            <Card key={booking.id}>
-              <CardContent className="pt-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="p-2 bg-blue-100 rounded-lg">
-                        <Calendar className="h-5 w-5 text-blue-600" />
+      {loading ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-gray-400" />
+            <p className="text-gray-500">Loading bookings...</p>
+          </CardContent>
+        </Card>
+      ) : bookings.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+            <p className="text-gray-500 mb-4">
+              {user.role === 'admin' ? 'No bookings found' : 'No bookings yet'}
+            </p>
+            {user.role !== 'admin' && !showForm && (
+              <Button onClick={() => setShowForm(true)}>
+                <Calendar className="h-4 w-4 mr-2" />
+                Book Your First Slot
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Time Slot</TableHead>
+                  <TableHead>Purpose</TableHead>
+                  {user.role === 'admin' && <TableHead>Requested By</TableHead>}
+                  <TableHead>Status</TableHead>
+                  <TableHead>Requested On</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {bookings.map((booking) => (
+                  <TableRow key={booking.id}>
+                    <TableCell className="font-medium">
+                      {new Date(booking.date).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                      })}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-3 w-3 text-gray-500" />
+                        {booking.timeSlot}
                       </div>
-                      <div>
-                        <p className="font-medium">{new Date(booking.date).toLocaleDateString('en-US', { 
-                          weekday: 'long',
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Clock className="h-3 w-3 text-gray-500" />
-                          <p className="text-sm text-gray-600">{booking.timeSlot}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {user.role === 'admin' && (
-                      <p className="text-sm text-gray-600 mb-2">
-                        Requested by: <span className="font-medium">{getUserName(booking.userId)}</span>
+                    </TableCell>
+                    <TableCell className="max-w-xs">
+                      <p className="truncate" title={booking.purpose}>
+                        {booking.purpose}
                       </p>
+                    </TableCell>
+                    {user.role === 'admin' && (
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{getUserName(booking)}</p>
+                          {booking.User?.email && (
+                            <p className="text-xs text-gray-500">{booking.User.email}</p>
+                          )}
+                        </div>
+                      </TableCell>
                     )}
-
-                    <div className="mb-3">
-                      <p className="text-sm text-gray-600 mb-1">Purpose:</p>
-                      <p className="text-sm">{booking.purpose}</p>
-                    </div>
-
-                    <div className="flex items-center gap-3">
+                    <TableCell>
                       <Badge className={getStatusColor(booking.status)}>
                         {booking.status}
                       </Badge>
-                      <span className="text-xs text-gray-500">
-                        Requested on {new Date(booking.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-
-                  {user.role === 'admin' && booking.status === 'pending' && (
-                    <div className="flex gap-2 ml-4">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleStatusUpdate(booking.id, 'approved')}
-                      >
-                        <Check className="h-4 w-4 mr-1" />
-                        Approve
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleStatusUpdate(booking.id, 'rejected')}
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Reject
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-gray-500">
+                      {new Date(booking.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {/* Edit Button - Only for non-admin users and their own bookings */}
+                        {user.role !== 'admin' && booking.userId === parseInt(user.id) && booking.status !== 'completed' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEditClick(booking)}
+                          >
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                        )}
+                        {/* Admin Actions */}
+                        {user.role === 'admin' && booking.status === 'pending' && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleStatusUpdate(booking.id, 'approved')}
+                              className="bg-green-50 hover:bg-green-100"
+                            >
+                              <Check className="h-4 w-4 mr-1" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleStatusUpdate(booking.id, 'rejected')}
+                              className="bg-red-50 hover:bg-red-100"
+                            >
+                              <X className="h-4 w-4 mr-1" />
+                              Reject
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
