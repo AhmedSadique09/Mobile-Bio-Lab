@@ -134,6 +134,56 @@ export const getSampleById = async (sampleId, userId = null) => {
   return sample;
 };
 
+export const getSampleBySampleId = async (sampleId, userId = null) => {
+  // Trim and normalize the sampleId to handle any whitespace or encoding issues
+  const normalizedSampleId = sampleId.trim();
+  
+  console.log(`[getSampleBySampleId Service] Searching for: "${normalizedSampleId}", userId filter: ${userId || 'none'}`);
+  
+  const whereClause = {
+    sampleId: normalizedSampleId,
+    deletedAt: null
+  };
+
+  // If userId is provided, ensure user can only access their own samples
+  if (userId) {
+    whereClause.userId = userId;
+  }
+
+  // Try exact match first
+  let sample = await Sample.findOne({
+    where: whereClause,
+    include: [{
+      model: User,
+      as: 'User',
+      attributes: ['id', 'firstName', 'lastName', 'email', 'mobile', 'city', 'role', 'profilePicture']
+    }]
+  });
+
+
+  if (!sample) {
+    // Log all samples with similar IDs for debugging
+    const similarSamples = await Sample.findAll({
+      where: {
+        sampleId: {
+          [Op.like]: `%${normalizedSampleId}%`
+        },
+        deletedAt: null
+      },
+      limit: 5,
+      attributes: ['id', 'sampleId', 'userId']
+    });
+    console.log(`[getSampleBySampleId Service] Similar samples found:`, similarSamples.map(s => ({ id: s.id, sampleId: s.sampleId, userId: s.userId })));
+    
+    const error = new Error(`Sample not found with ID: ${normalizedSampleId}`);
+    error.status = 404;
+    throw error;
+  }
+
+  console.log(`[getSampleBySampleId Service] Sample found successfully: ID=${sample.id}, sampleId=${sample.sampleId}, userId=${sample.userId}`);
+  return sample;
+};
+
 export const updateSampleStatus = async (sampleId, newStatus, userId = null, userRole = null) => {
   const whereClause = {
     id: sampleId,

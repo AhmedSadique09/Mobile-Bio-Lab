@@ -5,11 +5,13 @@ import authRoutes from './routes/auth.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import bookingRoutes from './routes/booking.routes.js';
 import sampleRoutes from './routes/sample.routes.js';
+import scanEventRoutes from './routes/scanEvent.routes.js';
 import bodyParser from 'body-parser';
 import { sequelize } from './db/mysql.js';
 import './models/User.js';
 import './models/Booking.js';
 import './models/Sample.js';
+import './models/ScanEvent.js';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './swagger.config.js';
 import cors from 'cors';
@@ -41,6 +43,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/booking', bookingRoutes);
 app.use('/api/sample', sampleRoutes);
+app.use('/api/scan-event', scanEventRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);

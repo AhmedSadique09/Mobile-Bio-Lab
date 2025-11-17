@@ -10,6 +10,7 @@ import { type User } from '../types';
 import { addNotification, addActivityLog } from '../lib/storage';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import sampleService from '../services/sample.service';
+import { QRScanner } from './QRScanner';
 
 interface AddSampleProps {
   user: User;
@@ -35,15 +36,158 @@ export function AddSample({ user, onNavigate }: AddSampleProps) {
   const [bleDevices, setBleDevices] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [gettingLocation, setGettingLocation] = useState(false);
+  const [showNotFoundDialog, setShowNotFoundDialog] = useState(false);
+  const [scannedData, setScannedData] = useState<{ sampleId: string; metadata?: any } | null>(null);
+  const [scanning, setScanning] = useState(false);
 
-  const handleQRScan = () => {
+  // Parse QR code data - could be JSON with metadata or plain sampleId
+  const parseQRData = (decodedText: string): { sampleId: string; metadata?: any } => {
+    try {
+      // Try to parse as JSON first
+      const parsed = JSON.parse(decodedText);
+      if (parsed.sampleId) {
+        return parsed;
+      }
+      // If JSON but no sampleId, treat the whole thing as sampleId
+      return { sampleId: decodedText, metadata: parsed };
+    } catch {
+      // Not JSON, treat as plain sampleId
+      return { sampleId: decodedText };
+    }
+  };
+
+  // Detect device type
+  const getDeviceType = (): 'mobile' | 'scanner' | 'browser' => {
+    const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+    if (/android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase())) {
+      return 'mobile';
+    }
+    // Could add logic to detect scanner devices
+    return 'browser';
+  };
+
+  const handleQRScanSuccess = async (decodedText: string) => {
+    setScanning(true);
+    setShowQRScanner(false);
+    
+    try {
+      // Parse the scanned data
+      const parsed = parseQRData(decodedText);
+      setScannedData(parsed);
+
+      // Try to fetch sample from backend
+      try {
+        const response = await sampleService.getSampleBySampleId(parsed.sampleId);
+        
+        if (response.statusCode === 200 && response.payload) {
+          const sample = response.payload;
+          
+          // Log successful scan event
+          try {
+            await sampleService.logScanEvent({
+              scannedSampleId: parsed.sampleId,
+              deviceType: getDeviceType(),
+              scanResult: 'found',
+              metadata: parsed.metadata || null
+            });
+          } catch (logError) {
+            console.error('Failed to log scan event:', logError);
+          }
+
+          // Auto-fill form with sample data
+          setFormData({
+            sampleId: sample.sampleId,
+            collectionDate: sample.collectionDate ? new Date(sample.collectionDate).toISOString().split('T')[0] : formData.collectionDate,
+            collectionTime: sample.collectionTime || formData.collectionTime,
+            sampleType: sample.sampleType || formData.sampleType,
+            latitude: sample.latitude ? sample.latitude.toString() : formData.latitude,
+            longitude: sample.longitude ? sample.longitude.toString() : formData.longitude,
+            temperature: sample.temperature ? sample.temperature.toString() : formData.temperature,
+            pH: sample.pH ? sample.pH.toString() : formData.pH,
+            salinity: sample.salinity ? sample.salinity.toString() : formData.salinity
+          });
+
+          addNotification({
+            id: Date.now().toString(),
+            userId: user.id,
+            title: 'Sample Found',
+            message: `Sample ${parsed.sampleId} loaded successfully`,
+            type: 'sample',
+            read: false,
+            createdAt: new Date().toISOString()
+          });
+        }
+      } catch (fetchError: any) {
+        // Sample not found - log the scan event and show dialog
+        try {
+          await sampleService.logScanEvent({
+            scannedSampleId: parsed.sampleId,
+            deviceType: getDeviceType(),
+            scanResult: 'not_found',
+            metadata: parsed.metadata || null
+          });
+        } catch (logError) {
+          console.error('Failed to log scan event:', logError);
+        }
+
+        // Show not found dialog
+        setShowNotFoundDialog(true);
+      }
+    } catch (error: any) {
+      console.error('Error processing QR scan:', error);
+      setErrors({ ...errors, submit: 'Failed to process scanned QR code. Please try again.' });
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const handleQRScanError = (error: string) => {
+    console.error('QR scan error:', error);
+    setErrors({ ...errors, submit: error });
+  };
+
+  const handleCreateNewSample = () => {
+    if (scannedData) {
+      // Pre-fill form with scanned data and metadata
+      const newFormData = { ...formData, sampleId: scannedData.sampleId };
+      
+      // If metadata contains additional fields, use them
+      if (scannedData.metadata) {
+        if (scannedData.metadata.collectedAt) {
+          const date = new Date(scannedData.metadata.collectedAt);
+          newFormData.collectionDate = date.toISOString().split('T')[0];
+          newFormData.collectionTime = date.toTimeString().slice(0, 5);
+        }
+        if (scannedData.metadata.sampleType) {
+          newFormData.sampleType = scannedData.metadata.sampleType;
+        }
+        if (scannedData.metadata.latitude) {
+          newFormData.latitude = scannedData.metadata.latitude.toString();
+        }
+        if (scannedData.metadata.longitude) {
+          newFormData.longitude = scannedData.metadata.longitude.toString();
+        }
+        if (scannedData.metadata.temperature) {
+          newFormData.temperature = scannedData.metadata.temperature.toString();
+        }
+        if (scannedData.metadata.pH) {
+          newFormData.pH = scannedData.metadata.pH.toString();
+        }
+        if (scannedData.metadata.salinity) {
+          newFormData.salinity = scannedData.metadata.salinity.toString();
+        }
+      }
+      
+      setFormData(newFormData);
+    }
+    setShowNotFoundDialog(false);
+    setScannedData(null);
+  };
+
+  const handleScanAgain = () => {
+    setShowNotFoundDialog(false);
+    setScannedData(null);
     setShowQRScanner(true);
-    // Simulate QR scan
-    setTimeout(() => {
-      const mockSampleId = `${formData.sampleType.toUpperCase().slice(0, 3)}-2025-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
-      setFormData({ ...formData, sampleId: mockSampleId });
-      setShowQRScanner(false);
-    }, 1500);
   };
 
   const handleBLEConnect = () => {
@@ -306,12 +450,22 @@ export function AddSample({ user, onNavigate }: AddSampleProps) {
         <Button 
           type="button" 
           variant="outline" 
-          onClick={handleQRScan} 
+          onClick={() => setShowQRScanner(true)} 
           className="hover:bg-gray-50 transition-colors"
           style={{ border: '1px solid #d1d5db' }}
+          disabled={scanning}
         >
-          <QrCode className="h-4 w-4 mr-2" />
-          Scan QR
+          {scanning ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Processing...
+            </>
+          ) : (
+            <>
+              <QrCode className="h-4 w-4 mr-2" />
+              Scan QR/Barcode
+            </>
+          )}
         </Button>
         <Button 
           type="button" 
@@ -563,19 +717,52 @@ export function AddSample({ user, onNavigate }: AddSampleProps) {
         </CardContent>
       </Card>
 
-      {/* QR Scanner Dialog */}
-      <Dialog open={showQRScanner} onOpenChange={setShowQRScanner}>
+      {/* QR Scanner Component */}
+      <QRScanner
+        isOpen={showQRScanner}
+        onClose={() => setShowQRScanner(false)}
+        onScanSuccess={handleQRScanSuccess}
+        onScanError={handleQRScanError}
+      />
+
+      {/* Sample Not Found Dialog */}
+      <Dialog open={showNotFoundDialog} onOpenChange={setShowNotFoundDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Scanning QR Code...</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-yellow-600" />
+              Sample Record Not Found
+            </DialogTitle>
             <DialogDescription>
-              Point your camera at the QR code on the sample container
+              The sample with ID <strong>{scannedData?.sampleId}</strong> was not found in the database.
+              Would you like to create a new entry?
             </DialogDescription>
           </DialogHeader>
-          <div className="flex items-center justify-center p-8">
-            <div className="animate-pulse">
-              <QrCode className="h-24 w-24 text-blue-600" />
-            </div>
+          <div className="space-y-3 pt-4">
+            <Button
+              onClick={handleCreateNewSample}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              Create New Sample
+            </Button>
+            <Button
+              onClick={handleScanAgain}
+              variant="outline"
+              className="w-full"
+            >
+              <QrCode className="h-4 w-4 mr-2" />
+              Scan Again
+            </Button>
+            <Button
+              onClick={() => {
+                setShowNotFoundDialog(false);
+                setScannedData(null);
+              }}
+              variant="outline"
+              className="w-full"
+            >
+              Cancel
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

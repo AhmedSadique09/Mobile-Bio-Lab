@@ -107,6 +107,39 @@ export const getSampleById = async (req, res) => {
   }
 };
 
+export const getSampleBySampleId = async (req, res) => {
+  try {
+    // Decode the sampleId from URL parameter (handles URL encoding)
+    const { sampleId } = req.params;
+    const decodedSampleId = decodeURIComponent(sampleId);
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    console.log(`[getSampleBySampleId] Searching for sampleId: "${decodedSampleId}", userId: ${userId}, role: ${userRole}`);
+
+    // For scanning purposes, allow any authenticated user to access any sample
+    // This is secure because they need physical access to the QR code to scan it
+    // Admin can see any sample, regular users can also scan any sample (via QR code)
+    const targetUserId = null; // Remove userId restriction for scanning
+    
+    const sample = await SampleService.getSampleBySampleId(decodedSampleId, targetUserId);
+
+    console.log(`[getSampleBySampleId] Sample found:`, sample ? `ID: ${sample.id}, sampleId: ${sample.sampleId}, createdBy: ${sample.userId}` : 'Not found');
+
+    return res.status(200).json({
+      statusCode: 200,
+      message: 'Sample retrieved successfully',
+      payload: sample
+    });
+  } catch (err) {
+    console.error(`[getSampleBySampleId] Error:`, err.message);
+    return res.status(err.status || 500).json({
+      statusCode: err.status || 500,
+      message: err.message || 'Internal server error'
+    });
+  }
+};
+
 export const updateSampleStatus = async (req, res) => {
   try {
     const { id } = req.params;

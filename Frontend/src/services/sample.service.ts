@@ -51,12 +51,33 @@ class SampleService extends HttpService {
   };
 
   /**
+   * Get sample by sampleId (the actual sample identifier, not database ID)
+   * @param sampleId The sample identifier from QR/barcode
+   */
+  getSampleBySampleId = async (sampleId: string) => {
+    return this.get(`sample/by-sample-id/${encodeURIComponent(sampleId)}`);
+  };
+
+  /**
    * Update sample status
    * @param sampleId Sample ID
    * @param status New status (pending, processing, completed)
    */
   updateSampleStatus = async (sampleId: number, status: 'pending' | 'processing' | 'completed') => {
     return this.put(`sample/${sampleId}/status`, { status });
+  };
+
+  /**
+   * Log a scan event
+   * @param scanData Scan event data
+   */
+  logScanEvent = async (scanData: {
+    scannedSampleId: string;
+    deviceType?: 'mobile' | 'scanner' | 'browser';
+    scanResult: 'found' | 'not_found';
+    metadata?: any;
+  }) => {
+    return this.post('scan-event', scanData);
   };
 }
 
