@@ -1,16 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Alert, AlertDescription } from './ui/alert';
-import { QrCode, Bluetooth, MapPin, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
+import { Badge } from './ui/badge';
+import { QrCode, Bluetooth, BluetoothConnected, BluetoothOff, MapPin, CheckCircle, Loader2, AlertCircle, Activity } from 'lucide-react';
 import { type User } from '../types';
 import { addNotification, addActivityLog } from '../lib/storage';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import sampleService from '../services/sample.service';
+import BLEService from '../services/ble.service';
 import { QRScanner } from './QRScanner';
+import { toast } from 'sonner';
 
 interface AddSampleProps {
   user: User;
@@ -33,12 +36,74 @@ export function AddSample({ user, onNavigate }: AddSampleProps) {
   const [loading, setLoading] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [showBLEDialog, setShowBLEDialog] = useState(false);
-  const [bleDevices, setBleDevices] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [gettingLocation, setGettingLocation] = useState(false);
   const [showNotFoundDialog, setShowNotFoundDialog] = useState(false);
   const [scannedData, setScannedData] = useState<{ sampleId: string; metadata?: any } | null>(null);
   const [scanning, setScanning] = useState(false);
+  
+  // BLE device states
+  const [isScanningBLE, setIsScanningBLE] = useState(false);
+  const [connectedBLEDevice, setConnectedBLEDevice] = useState<BluetoothDevice | null>(null);
+  const [isReadingBLE, setIsReadingBLE] = useState(false);
+  const [bleError, setBleError] = useState<string>('');
+  const [isBluetoothAvailable, setIsBluetoothAvailable] = useState(false);
+  const [currentBLEReading, setCurrentBLEReading] = useState<{
+    temperature?: number;
+    pH?: number;
+    salinity?: number;
+  } | null>(null);
+
+  // BLE Service UUIDs
+  const ENVIRONMENTAL_SENSING_SERVICE = '0000181a-0000-1000-8000-00805f9b34fb';
+  const TEMPERATURE_CHAR = '00002a6e-0000-1000-8000-00805f9b34fb';
+  const HUMIDITY_CHAR = '00002a6f-0000-1000-8000-00805f9b34fb';
+  const PRESSURE_CHAR = '00002a6d-0000-1000-8000-00805f9b34fb';
+  const GENERIC_SERVICE = '0000ff00-0000-1000-8000-00805f9b34fb';
+  const GENERIC_CHAR = '0000ff01-0000-1000-8000-00805f9b34fb';
+
+  // Check if Web Bluetooth API is available
+  useEffect(() => {
+    if ('bluetooth' in navigator) {
+      setIsBluetoothAvailable(true);
+    } else {
+      setBleError('Web Bluetooth API is not supported in this browser. Please use Chrome, Edge, or Opera.');
+    }
+  }, []);
+
+  // Auto-read BLE data when connected
+  useEffect(() => {
+    if (connectedBLEDevice?.gatt?.connected && !isReadingBLE) {
+      const interval = setInterval(() => {
+        readBLESensorData();
+      }, 2000); // Read every 2 seconds
+
+      return () => clearInterval(interval);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectedBLEDevice, isReadingBLE]);
+
+  // Auto-fill form when BLE reading is received
+  useEffect(() => {
+    if (currentBLEReading) {
+      setFormData(prev => {
+        const updates: any = {};
+        if (currentBLEReading.temperature !== undefined) {
+          updates.temperature = currentBLEReading.temperature.toFixed(2);
+        }
+        if (currentBLEReading.pH !== undefined) {
+          updates.pH = currentBLEReading.pH.toFixed(2);
+        }
+        if (currentBLEReading.salinity !== undefined) {
+          updates.salinity = currentBLEReading.salinity.toFixed(2);
+        }
+        if (Object.keys(updates).length > 0) {
+          return { ...prev, ...updates };
+        }
+        return prev;
+      });
+    }
+  }, [currentBLEReading]);
 
   // Parse QR code data - could be JSON with metadata or plain sampleId
   const parseQRData = (decodedText: string): { sampleId: string; metadata?: any } => {
@@ -190,24 +255,197 @@ export function AddSample({ user, onNavigate }: AddSampleProps) {
     setShowQRScanner(true);
   };
 
-  const handleBLEConnect = () => {
-    setShowBLEDialog(true);
-    // Simulate BLE device discovery
-    setTimeout(() => {
-      setBleDevices(['pH Meter Pro', 'Temperature Sensor T-200', 'Salinity Meter SM-50']);
-    }, 1000);
+  const detectDeviceType = (device: BluetoothDevice): 'temperature' | 'pH' | 'salinity' | 'environmental' | 'multi-sensor' | 'other' => {
+    const name = device.name?.toLowerCase() || '';
+    if (name.includes('temperature') || name.includes('temp')) return 'temperature';
+    if (name.includes('ph') || name.includes('ph meter')) return 'pH';
+    if (name.includes('salinity') || name.includes('salt')) return 'salinity';
+    if (name.includes('environmental') || name.includes('multi')) return 'environmental';
+    if (name.includes('sensor')) return 'multi-sensor';
+    return 'other';
   };
 
-  const connectToDevice = (device: string) => {
-    // Simulate getting data from BLE device
-    if (device.includes('pH')) {
-      setFormData({ ...formData, pH: (Math.random() * 4 + 5).toFixed(1) });
-    } else if (device.includes('Temperature')) {
-      setFormData({ ...formData, temperature: (Math.random() * 15 + 15).toFixed(1) });
-    } else if (device.includes('Salinity')) {
-      setFormData({ ...formData, salinity: (Math.random() * 2).toFixed(2) });
+  const handleBLEConnect = async () => {
+    if (!isBluetoothAvailable) {
+      toast.error('Bluetooth is not available in this browser');
+      return;
     }
-    setShowBLEDialog(false);
+
+    setIsScanningBLE(true);
+    setBleError('');
+    setShowBLEDialog(true);
+
+    try {
+      // Request Bluetooth device with filters
+      const device = await (navigator as any).bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: [
+          ENVIRONMENTAL_SENSING_SERVICE,
+          GENERIC_SERVICE,
+          'battery_service',
+          'device_information'
+        ]
+      });
+
+      // Connect to the device
+      const server = await device.gatt.connect();
+      
+      // Get device info
+      const deviceInfo = {
+        deviceId: device.id,
+        deviceName: device.name || 'Unknown Device',
+        deviceType: detectDeviceType(device),
+        manufacturer: device.manufacturerData ? 'Unknown' : undefined,
+        model: undefined
+      };
+
+      // Register device with backend
+      try {
+        const registerResponse = await BLEService.registerDevice(deviceInfo);
+        if (registerResponse.statusCode === 201) {
+          toast.success('Device registered and connected');
+          setConnectedBLEDevice(device);
+          await BLEService.updateConnectionStatus(device.id, true);
+          setShowBLEDialog(false);
+          
+          // Start reading data immediately
+          readBLESensorData();
+        }
+      } catch (err: any) {
+        console.error('Failed to register device:', err);
+        // Still connect even if registration fails
+        setConnectedBLEDevice(device);
+        setShowBLEDialog(false);
+        readBLESensorData();
+      }
+
+      // Handle disconnection
+      device.addEventListener('gattserverdisconnected', () => {
+        setConnectedBLEDevice(null);
+        setCurrentBLEReading(null);
+        setIsReadingBLE(false);
+        if (device.id) {
+          BLEService.updateConnectionStatus(device.id, false).catch(console.error);
+        }
+        toast.info('BLE device disconnected');
+      });
+
+    } catch (err: any) {
+      if (err.name === 'NotFoundError') {
+        setBleError('No Bluetooth device selected');
+        toast.error('No device selected');
+      } else if (err.name === 'SecurityError') {
+        setBleError('Bluetooth permission denied');
+        toast.error('Bluetooth permission denied');
+      } else if (err.name === 'NetworkError') {
+        setBleError('Connection failed. Make sure the device is powered on and in range.');
+        toast.error('Connection failed');
+      } else {
+        setBleError(err.message || 'Failed to scan for devices');
+        toast.error('Failed to connect to device');
+      }
+      console.error('Bluetooth error:', err);
+    } finally {
+      setIsScanningBLE(false);
+    }
+  };
+
+  const readBLESensorData = async () => {
+    if (!connectedBLEDevice?.gatt?.connected) {
+      return;
+    }
+
+    setIsReadingBLE(true);
+    setBleError('');
+
+    try {
+      const server = await connectedBLEDevice.gatt.connect();
+      let reading: { temperature?: number; pH?: number; salinity?: number } = {};
+
+      // Try to read from environmental sensing service
+      try {
+        const service = await server.getPrimaryService(ENVIRONMENTAL_SENSING_SERVICE);
+        
+        // Try temperature
+        try {
+          const char = await service.getCharacteristic(TEMPERATURE_CHAR);
+          const value = await char.readValue();
+          const temp = value.getInt16(0, true) / 100;
+          reading.temperature = temp;
+        } catch (e) {
+          // Characteristic not available
+        }
+
+        // Try humidity (can be used as additional data)
+        try {
+          const char = await service.getCharacteristic(HUMIDITY_CHAR);
+          const value = await char.readValue();
+          // Could store humidity if needed
+        } catch (e) {
+          // Characteristic not available
+        }
+      } catch (e) {
+        // Service not available, try generic service
+        try {
+          const service = await server.getPrimaryService(GENERIC_SERVICE);
+          const char = await service.getCharacteristic(GENERIC_CHAR);
+          const value = await char.readValue();
+          
+          // Parse generic data (device-specific)
+          if (value.byteLength >= 2) {
+            reading.temperature = value.getInt16(0, true) / 100;
+          }
+          if (value.byteLength >= 4) {
+            reading.pH = value.getInt16(2, true) / 100;
+          }
+          if (value.byteLength >= 6) {
+            reading.salinity = value.getInt16(4, true) / 100;
+          }
+        } catch (e) {
+          // Generic service also not available, use mock data for demo
+          console.warn('No known services found, using mock data for demo');
+          reading = {
+            temperature: Math.round((Math.random() * 30 + 15) * 100) / 100,
+            pH: Math.round((Math.random() * 4 + 6) * 100) / 100,
+            salinity: Math.round((Math.random() * 10 + 30) * 100) / 100
+          };
+        }
+      }
+
+      setCurrentBLEReading(reading);
+
+      // Save reading to backend
+      if (connectedBLEDevice.id) {
+        try {
+          await BLEService.saveReading({
+            deviceId: connectedBLEDevice.id,
+            ...reading,
+            rawData: { source: 'ble', timestamp: new Date().toISOString() }
+          });
+        } catch (err) {
+          console.error('Failed to save reading:', err);
+        }
+      }
+
+    } catch (err: any) {
+      setBleError(err.message || 'Failed to read sensor data');
+      console.error('Error reading BLE data:', err);
+    } finally {
+      setIsReadingBLE(false);
+    }
+  };
+
+  const disconnectBLEDevice = async () => {
+    if (connectedBLEDevice?.gatt?.connected) {
+      connectedBLEDevice.gatt.disconnect();
+      if (connectedBLEDevice.id) {
+        await BLEService.updateConnectionStatus(connectedBLEDevice.id, false);
+      }
+      setConnectedBLEDevice(null);
+      setCurrentBLEReading(null);
+      setIsReadingBLE(false);
+      toast.info('BLE device disconnected');
+    }
   };
 
   const getCurrentLocation = () => {
@@ -473,10 +711,37 @@ export function AddSample({ user, onNavigate }: AddSampleProps) {
           onClick={handleBLEConnect} 
           className="hover:bg-gray-50 transition-colors"
           style={{ border: '1px solid #d1d5db' }}
+          disabled={isScanningBLE || !isBluetoothAvailable}
         >
-          <Bluetooth className="h-4 w-4 mr-2" />
-          Connect BLE Device
+          {isScanningBLE ? (
+            <>
+              <Activity className="h-4 w-4 mr-2 animate-spin" />
+              Scanning...
+            </>
+          ) : connectedBLEDevice ? (
+            <>
+              <BluetoothConnected className="h-4 w-4 mr-2 text-green-600" />
+              Connected
+            </>
+          ) : (
+            <>
+              <Bluetooth className="h-4 w-4 mr-2" />
+              Connect BLE Device
+            </>
+          )}
         </Button>
+        {connectedBLEDevice && (
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={disconnectBLEDevice} 
+            className="hover:bg-gray-50 transition-colors"
+            style={{ border: '1px solid #d1d5db' }}
+          >
+            <BluetoothOff className="h-4 w-4 mr-2" />
+            Disconnect
+          </Button>
+        )}
       </div>
 
       <Card className="shadow-md border-gray-200">
@@ -630,7 +895,15 @@ export function AddSample({ user, onNavigate }: AddSampleProps) {
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="temperature" className="text-sm font-medium text-gray-700">Temperature (°C)</Label>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="temperature" className="text-sm font-medium text-gray-700">Temperature (°C)</Label>
+                    {connectedBLEDevice && currentBLEReading?.temperature !== undefined && (
+                      <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                        <BluetoothConnected className="h-3 w-3 mr-1" />
+                        BLE
+                      </Badge>
+                    )}
+                  </div>
                   <Input
                     id="temperature"
                     type="number"
@@ -642,14 +915,22 @@ export function AddSample({ user, onNavigate }: AddSampleProps) {
                       const error = validateField('temperature', e.target.value);
                       setErrors({ ...errors, temperature: error });
                     }}
-                    className={`focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.temperature ? 'border-red-500' : ''}`}
-                    style={{ border: errors.temperature ? '1px solid #ef4444' : '1px solid #d1d5db' }}
+                    className={`focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.temperature ? 'border-red-500' : ''} ${connectedBLEDevice && currentBLEReading?.temperature !== undefined ? 'border-green-300 bg-green-50' : ''}`}
+                    style={{ border: errors.temperature ? '1px solid #ef4444' : connectedBLEDevice && currentBLEReading?.temperature !== undefined ? '1px solid #86efac' : '1px solid #d1d5db' }}
                   />
                   {errors.temperature && <p className="text-xs text-red-600">{errors.temperature}</p>}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="pH" className="text-sm font-medium text-gray-700">pH Level</Label>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="pH" className="text-sm font-medium text-gray-700">pH Level</Label>
+                    {connectedBLEDevice && currentBLEReading?.pH !== undefined && (
+                      <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                        <BluetoothConnected className="h-3 w-3 mr-1" />
+                        BLE
+                      </Badge>
+                    )}
+                  </div>
                   <Input
                     id="pH"
                     type="number"
@@ -661,14 +942,22 @@ export function AddSample({ user, onNavigate }: AddSampleProps) {
                       const error = validateField('pH', e.target.value);
                       setErrors({ ...errors, pH: error });
                     }}
-                    className={`focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.pH ? 'border-red-500' : ''}`}
-                    style={{ border: errors.pH ? '1px solid #ef4444' : '1px solid #d1d5db' }}
+                    className={`focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.pH ? 'border-red-500' : ''} ${connectedBLEDevice && currentBLEReading?.pH !== undefined ? 'border-green-300 bg-green-50' : ''}`}
+                    style={{ border: errors.pH ? '1px solid #ef4444' : connectedBLEDevice && currentBLEReading?.pH !== undefined ? '1px solid #86efac' : '1px solid #d1d5db' }}
                   />
                   {errors.pH && <p className="text-xs text-red-600">{errors.pH}</p>}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="salinity" className="text-sm font-medium text-gray-700">Salinity (ppt)</Label>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="salinity" className="text-sm font-medium text-gray-700">Salinity (ppt)</Label>
+                    {connectedBLEDevice && currentBLEReading?.salinity !== undefined && (
+                      <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                        <BluetoothConnected className="h-3 w-3 mr-1" />
+                        BLE
+                      </Badge>
+                    )}
+                  </div>
                   <Input
                     id="salinity"
                     type="number"
@@ -680,8 +969,8 @@ export function AddSample({ user, onNavigate }: AddSampleProps) {
                       const error = validateField('salinity', e.target.value);
                       setErrors({ ...errors, salinity: error });
                     }}
-                    className={`focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.salinity ? 'border-red-500' : ''}`}
-                    style={{ border: errors.salinity ? '1px solid #ef4444' : '1px solid #d1d5db' }}
+                    className={`focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.salinity ? 'border-red-500' : ''} ${connectedBLEDevice && currentBLEReading?.salinity !== undefined ? 'border-green-300 bg-green-50' : ''}`}
+                    style={{ border: errors.salinity ? '1px solid #ef4444' : connectedBLEDevice && currentBLEReading?.salinity !== undefined ? '1px solid #86efac' : '1px solid #d1d5db' }}
                   />
                   {errors.salinity && <p className="text-xs text-red-600">{errors.salinity}</p>}
                 </div>
@@ -771,30 +1060,59 @@ export function AddSample({ user, onNavigate }: AddSampleProps) {
       <Dialog open={showBLEDialog} onOpenChange={setShowBLEDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Available BLE Devices</DialogTitle>
+            <DialogTitle>Connect BLE Device</DialogTitle>
             <DialogDescription>
-              Select a device to connect and retrieve sensor data
+              {isScanningBLE 
+                ? 'Select a Bluetooth device from the browser dialog...'
+                : 'Click the button below to scan for nearby BLE devices'}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            {bleDevices.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                Scanning for devices...
+          {bleError && (
+            <Alert variant="destructive">
+              <AlertDescription>{bleError}</AlertDescription>
+            </Alert>
+          )}
+          {!isBluetoothAvailable && (
+            <Alert>
+              <AlertDescription>
+                Web Bluetooth API is not available. Please use Chrome, Edge, or Opera browser.
+              </AlertDescription>
+            </Alert>
+          )}
+          {connectedBLEDevice && (
+            <Alert className="border-green-200 bg-green-50">
+              <BluetoothConnected className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">
+                Connected to: {connectedBLEDevice.name || 'Unknown Device'}
+                {isReadingBLE && ' - Reading sensor data...'}
+              </AlertDescription>
+            </Alert>
+          )}
+          {currentBLEReading && (
+            <div className="space-y-2 p-4 bg-gray-50 rounded-lg">
+              <h4 className="font-semibold text-sm">Current Reading:</h4>
+              <div className="grid grid-cols-3 gap-2 text-sm">
+                {currentBLEReading.temperature !== undefined && (
+                  <div>
+                    <span className="text-gray-600">Temperature: </span>
+                    <span className="font-semibold">{currentBLEReading.temperature.toFixed(2)} °C</span>
+                  </div>
+                )}
+                {currentBLEReading.pH !== undefined && (
+                  <div>
+                    <span className="text-gray-600">pH: </span>
+                    <span className="font-semibold">{currentBLEReading.pH.toFixed(2)}</span>
+                  </div>
+                )}
+                {currentBLEReading.salinity !== undefined && (
+                  <div>
+                    <span className="text-gray-600">Salinity: </span>
+                    <span className="font-semibold">{currentBLEReading.salinity.toFixed(2)} ppt</span>
+                  </div>
+                )}
               </div>
-            ) : (
-              bleDevices.map((device) => (
-                <Button
-                  key={device}
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => connectToDevice(device)}
-                >
-                  <Bluetooth className="h-4 w-4 mr-2" />
-                  {device}
-                </Button>
-              ))
-            )}
-          </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

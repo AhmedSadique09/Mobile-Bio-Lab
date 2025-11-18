@@ -15,6 +15,8 @@ import { Bookings } from './components/Bookings';
 import { Protocols } from './components/Protocols';
 import { UserManagement } from './components/UserManagement';
 import { ActivityLogs } from './components/ActivityLogs';
+import { BLEDeviceManager } from './components/BLEDeviceManager';
+import { Toaster } from './components/ui/sonner';
 import { initializeStorage, getCurrentUser, setCurrentUser } from './lib/storage';
 import { type User, type Sample } from './types';
 import authService from './services/auth.service';
@@ -94,7 +96,9 @@ export default function App() {
   };
 
   const handleNavigate = (page: string, data?: any) => {
-    navigate(page, { state: data });
+    // Ensure page path starts with / for absolute navigation
+    const path = page.startsWith('/') ? page : `/${page}`;
+    navigate(path, { state: data });
   };
 
   const handleUserUpdate = (updatedUser: User) => {
@@ -114,7 +118,9 @@ export default function App() {
   };
 
   return (
-    <Routes>
+    <>
+      <Toaster />
+      <Routes>
       {/* Auth Routes */}
       <Route 
         path="/login" 
@@ -264,6 +270,21 @@ export default function App() {
         }
       />
       <Route
+        path="/ble-devices"
+        element={
+          <ProtectedRoute>
+            <Layout
+              user={user || getCurrentUser()!}
+              currentPage="ble-devices"
+              onNavigate={handleNavigate}
+              onLogout={handleLogout}
+            >
+              <BLEDeviceManager />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/admin-users"
         element={
           <AdminRoute>
@@ -298,5 +319,6 @@ export default function App() {
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
+    </>
   );
 }
