@@ -13,7 +13,8 @@ import {
   Users,
   Activity,
   Settings,
-  Bluetooth
+  Bluetooth,
+  BarChart3
 } from 'lucide-react';
 import { type User, type Notification } from '../types';
 import { getNotifications, markNotificationAsRead } from '../lib/storage';
@@ -55,7 +56,7 @@ export function Layout({ user, currentPage, onNavigate, onLogout, children }: La
     { id: 'samples', label: 'Samples', icon: Beaker },
     { id: 'bookings', label: 'Bookings', icon: Calendar },
     { id: 'protocols', label: 'Protocols', icon: FileText },
-    { id: 'ble-devices', label: 'BLE Devices', icon: Bluetooth },
+    { id: 'admin-visualization', label: 'System Analytics', icon: BarChart3 },
     { id: 'admin-logs', label: 'Activity Logs', icon: Activity },
     { id: 'profile', label: 'Settings', icon: Settings }
   ] : [
@@ -63,6 +64,7 @@ export function Layout({ user, currentPage, onNavigate, onLogout, children }: La
     { id: 'bookings', label: 'Bookings', icon: Calendar },
     { id: 'protocols', label: 'Protocols', icon: FileText },
     { id: 'ble-devices', label: 'BLE Devices', icon: Bluetooth },
+    { id: 'user-visualization', label: 'Data Visualization', icon: BarChart3 },
     { id: 'profile', label: 'Settings', icon: Settings }
   ];
 

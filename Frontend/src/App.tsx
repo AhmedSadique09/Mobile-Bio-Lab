@@ -16,6 +16,8 @@ import { Protocols } from './components/Protocols';
 import { UserManagement } from './components/UserManagement';
 import { ActivityLogs } from './components/ActivityLogs';
 import { BLEDeviceManager } from './components/BLEDeviceManager';
+import { UserDataVisualization } from './components/UserDataVisualization';
+import { AdminDataVisualization } from './components/AdminDataVisualization';
 import { Toaster } from './components/ui/sonner';
 import { initializeStorage, getCurrentUser, setCurrentUser } from './lib/storage';
 import { type User, type Sample } from './types';
@@ -282,6 +284,36 @@ export default function App() {
               <BLEDeviceManager />
             </Layout>
           </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/user-visualization"
+        element={
+          <ProtectedRoute>
+            <Layout
+              user={user || getCurrentUser()!}
+              currentPage="user-visualization"
+              onNavigate={handleNavigate}
+              onLogout={handleLogout}
+            >
+              <UserDataVisualization user={user || getCurrentUser()!} />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin-visualization"
+        element={
+          <AdminRoute>
+            <Layout
+              user={user || getCurrentUser()!}
+              currentPage="admin-visualization"
+              onNavigate={handleNavigate}
+              onLogout={handleLogout}
+            >
+              <AdminDataVisualization user={user || getCurrentUser()!} />
+            </Layout>
+          </AdminRoute>
         }
       />
       <Route

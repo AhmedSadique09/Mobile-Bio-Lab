@@ -7,14 +7,13 @@ import bookingRoutes from './routes/booking.routes.js';
 import sampleRoutes from './routes/sample.routes.js';
 import scanEventRoutes from './routes/scanEvent.routes.js';
 import bleRoutes from './routes/ble.routes.js';
+import analyticsRoutes from './routes/analytics.routes.js';
 import bodyParser from 'body-parser';
 import { sequelize } from './db/mysql.js';
 import './models/User.js';
 import './models/Booking.js';
 import './models/Sample.js';
 import './models/ScanEvent.js';
-import './models/BLEDevice.js';
-import './models/BLEReading.js';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './swagger.config.js';
 import cors from 'cors';
@@ -48,6 +47,7 @@ app.use('/api/booking', bookingRoutes);
 app.use('/api/sample', sampleRoutes);
 app.use('/api/scan-event', scanEventRoutes);
 app.use('/api/ble', bleRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);
