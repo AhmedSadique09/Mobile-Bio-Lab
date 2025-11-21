@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Input } from './ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Search, Activity, User, Beaker, FileText, Calendar } from 'lucide-react';
+import { Activity, User, Beaker, FileText, Calendar } from 'lucide-react';
 import adminService from '../services/admin.service';
 
 interface SystemLog {
@@ -23,39 +21,20 @@ interface SystemLog {
 
 export function ActivityLogs() {
   const [logs, setLogs] = useState<SystemLog[]>([]);
-  const [filteredLogs, setFilteredLogs] = useState<SystemLog[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [actionType, setActionType] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState<any>(null);
 
   useEffect(() => {
     loadLogs();
-  }, [currentPage, actionType]);
-
-  useEffect(() => {
-    if (searchTerm) {
-      const filtered = logs.filter(log => 
-        log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.details.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (log.user && `${log.user.firstName} ${log.user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
-      setFilteredLogs(filtered);
-    } else {
-      setFilteredLogs(logs);
-    }
-  }, [searchTerm, logs]);
+  }, [currentPage]);
 
   const loadLogs = async () => {
     try {
       setLoading(true);
-      const response = await adminService.getSystemLogs(currentPage, 50, {
-        actionType: actionType !== 'all' ? actionType : undefined
-      });
+      const response = await adminService.getSystemLogs(currentPage, 50);
       if (response.statusCode === 200 && response.payload) {
         setLogs(response.payload.logs || []);
-        setFilteredLogs(response.payload.logs || []);
         setPagination(response.payload.pagination || null);
       }
     } catch (error) {
@@ -95,33 +74,6 @@ export function ActivityLogs() {
         <p className="text-gray-600">View all system activities and user actions</p>
       </div>
 
-      {/* Search and Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search activity logs..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={actionType} onValueChange={setActionType}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Activities</SelectItem>
-                <SelectItem value="sample">Samples</SelectItem>
-                <SelectItem value="report">Reports</SelectItem>
-                <SelectItem value="scan">Scans</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -166,7 +118,7 @@ export function ActivityLogs() {
           ) : (
             <>
               <div className="space-y-4">
-                {filteredLogs.map((log) => (
+                {logs.map((log) => (
                   <div key={log.id} className="flex gap-4 pb-4 border-b last:border-b-0">
                     <div className={`p-3 rounded-lg h-fit ${getActionColor(log)}`}>
                       {getActionIcon(log)}
@@ -207,7 +159,7 @@ export function ActivityLogs() {
                 ))}
               </div>
 
-              {filteredLogs.length === 0 && !loading && (
+              {logs.length === 0 && !loading && (
                 <div className="py-12 text-center">
                   <Activity className="h-12 w-12 text-gray-400 mx-auto mb-3" />
                   <p className="text-gray-500">No activity logs found</p>
