@@ -57,6 +57,7 @@ export function Layout({ user, currentPage, onNavigate, onLogout, children }: La
     { id: 'bookings', label: 'Bookings', icon: Calendar },
     { id: 'protocols', label: 'Protocols', icon: FileText },
     { id: 'admin-visualization', label: 'System Analytics', icon: BarChart3 },
+    { id: 'reports', label: 'Reports', icon: FileText },
     { id: 'admin-logs', label: 'Activity Logs', icon: Activity },
     { id: 'profile', label: 'Settings', icon: Settings }
   ] : [
@@ -65,6 +66,7 @@ export function Layout({ user, currentPage, onNavigate, onLogout, children }: La
     { id: 'protocols', label: 'Protocols', icon: FileText },
     { id: 'ble-devices', label: 'BLE Devices', icon: Bluetooth },
     { id: 'user-visualization', label: 'Data Visualization', icon: BarChart3 },
+    { id: 'reports', label: 'Reports', icon: FileText },
     { id: 'profile', label: 'Settings', icon: Settings }
   ];
 

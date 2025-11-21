@@ -18,6 +18,7 @@ import { ActivityLogs } from './components/ActivityLogs';
 import { BLEDeviceManager } from './components/BLEDeviceManager';
 import { UserDataVisualization } from './components/UserDataVisualization';
 import { AdminDataVisualization } from './components/AdminDataVisualization';
+import { Reports } from './components/Reports';
 import { Toaster } from './components/ui/sonner';
 import { initializeStorage, getCurrentUser, setCurrentUser } from './lib/storage';
 import { type User, type Sample } from './types';
@@ -344,6 +345,21 @@ export default function App() {
               <ActivityLogs />
             </Layout>
           </AdminRoute>
+        }
+      />
+      <Route
+        path="/reports"
+        element={
+          <ProtectedRoute>
+            <Layout
+              user={user || getCurrentUser()!}
+              currentPage="reports"
+              onNavigate={handleNavigate}
+              onLogout={handleLogout}
+            >
+              <Reports user={user || getCurrentUser()!} />
+            </Layout>
+          </ProtectedRoute>
         }
       />
 

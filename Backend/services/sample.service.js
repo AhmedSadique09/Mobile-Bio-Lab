@@ -1,6 +1,7 @@
 import Sample from '../models/Sample.js';
 import User from '../models/User.js';
 import { Op } from 'sequelize';
+import * as ReportService from './report.service.js';
 
 export const createSample = async (userId, sampleData) => {
   // Check if user exists and is not deleted
@@ -137,9 +138,9 @@ export const getSampleById = async (sampleId, userId = null) => {
 export const getSampleBySampleId = async (sampleId, userId = null) => {
   // Trim and normalize the sampleId to handle any whitespace or encoding issues
   const normalizedSampleId = sampleId.trim();
-  
+
   console.log(`[getSampleBySampleId Service] Searching for: "${normalizedSampleId}", userId filter: ${userId || 'none'}`);
-  
+
   const whereClause = {
     sampleId: normalizedSampleId,
     deletedAt: null
@@ -174,7 +175,7 @@ export const getSampleBySampleId = async (sampleId, userId = null) => {
       attributes: ['id', 'sampleId', 'userId']
     });
     console.log(`[getSampleBySampleId Service] Similar samples found:`, similarSamples.map(s => ({ id: s.id, sampleId: s.sampleId, userId: s.userId })));
-    
+
     const error = new Error(`Sample not found with ID: ${normalizedSampleId}`);
     error.status = 404;
     throw error;
@@ -213,8 +214,39 @@ export const updateSampleStatus = async (sampleId, newStatus, userId = null, use
     throw error;
   }
 
+  // Store old status to check if it changed
+  const oldStatus = sample.status;
+
   // Update status
   await sample.update({ status: newStatus });
+
+  // If admin changed status to completed, automatically generate report for the user
+  if (userRole === 'Admin' && newStatus === 'completed' && oldStatus !== 'completed') {
+    try {
+      // Get the sample owner's information
+      const sampleOwner = await User.findByPk(sample.userId);
+
+      if (sampleOwner) {
+        // Generate report asynchronously (don't wait for it to complete)
+        // This prevents blocking the status update response
+        ReportService.generateReport(
+          sample.userId, // userId - the user who owns the sample
+          userId, // generatedBy - the admin who triggered this
+          {
+            title: `Report - ${sampleOwner.firstName} ${sampleOwner.lastName} - ${new Date().toLocaleDateString()}`,
+            sampleIds: null // null means include all completed samples for this user
+          }
+        ).then(() => {
+          console.log(`✅ Auto-generated report for user ${sample.userId} after sample ${sample.sampleId} was marked as completed`);
+        }).catch(err => {
+          console.error(`❌ Failed to auto-generate report for user ${sample.userId}:`, err.message);
+        });
+      }
+    } catch (reportError) {
+      // Log error but don't fail the status update
+      console.error('Error triggering automatic report generation:', reportError);
+    }
+  }
 
   // Return updated sample with user details
   const updatedSample = await Sample.findByPk(sample.id, {
