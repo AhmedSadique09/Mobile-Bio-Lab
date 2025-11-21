@@ -53,11 +53,12 @@ export const getProtocols = async (isAdmin = false, filters = {}, page = 1, limi
         whereClause.difficulty = difficulty;
     }
 
-    // Search in title and description
-    if (search) {
+    // Search in title and description (case-insensitive, trimmed)
+    if (search && typeof search === 'string' && search.trim() !== '') {
+        const trimmedSearch = search.trim();
         whereClause[Op.or] = [
-            { title: { [Op.like]: `%${search}%` } },
-            { description: { [Op.like]: `%${search}%` } }
+            { title: { [Op.like]: `%${trimmedSearch}%` } },
+            { description: { [Op.like]: `%${trimmedSearch}%` } }
         ];
     }
 

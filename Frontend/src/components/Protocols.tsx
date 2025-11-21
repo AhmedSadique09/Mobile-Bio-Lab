@@ -65,10 +65,10 @@ export function Protocols({ user }: ProtocolsProps) {
 
     if (searchTerm) {
       filtered = filtered.filter(p =>
-        p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.experimentType.toLowerCase().includes(searchTerm.toLowerCase())
+        (p.title ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.description ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.category ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.experimentType ?? '').toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
