@@ -1,5 +1,5 @@
 import express from 'express';
-import { getUsers, updateUser, deleteUser } from '../controllers/admin.controller.js';
+import { getUsers, updateUser, deleteUser, getDashboardStats, getSystemLogs } from '../controllers/admin.controller.js';
 import { jwtGuard } from '../middlewares/jwt.middleware.js';
 import { uploadSingle } from '../middlewares/upload.middleware.js';
 
@@ -74,6 +74,8 @@ const router = express.Router();
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
+router.get('/dashboard/stats', jwtGuard, getDashboardStats);
+router.get('/system-logs', jwtGuard, getSystemLogs);
 router.get('/users', jwtGuard, getUsers);
 router.put('/users/:id', jwtGuard, uploadSingle, updateUser);
 router.delete('/users/:id', jwtGuard, deleteUser);

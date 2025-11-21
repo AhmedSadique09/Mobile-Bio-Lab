@@ -37,6 +37,27 @@ class AdminService extends HttpService {
   deleteUser = async (userId: number) => {
     return this.delete(`admin/users/${userId}`);
   };
+
+  /**
+   * Get dashboard statistics
+   */
+  getDashboardStats = async () => {
+    return this.get('admin/dashboard/stats');
+  };
+
+  /**
+   * Get system logs and activity history
+   * @param page Page number
+   * @param limit Items per page
+   * @param filters Optional filters (startDate, endDate, actionType)
+   */
+  getSystemLogs = async (page: number = 1, limit: number = 50, filters?: {
+    startDate?: string;
+    endDate?: string;
+    actionType?: string;
+  }) => {
+    return this.get('admin/system-logs', { page, limit, ...filters });
+  };
 }
 
 export default new AdminService();

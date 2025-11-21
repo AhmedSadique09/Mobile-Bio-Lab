@@ -269,37 +269,43 @@ export function Protocols({ user }: ProtocolsProps) {
         </Card>
       ) : (
         <>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-2">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Search protocols by title, category, or experiment type..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-2 overflow-x-auto">
-                  {categories.map(category => (
-                    <Button
-                      key={category}
-                      variant={selectedCategory === category ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setSelectedCategory(category)}
-                      className="whitespace-nowrap"
-                    >
-                      {category === 'all' ? 'All' : category}
-                    </Button>
-                  ))}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2">
+              <div className="max-w-md">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search protocols by title, category, or experiment type..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 border-gray-300 bg-white text-gray-700 placeholder:text-gray-400 focus:border-gray-400 focus:ring-gray-400"
+                  />
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+
+            <div className="flex gap-2 overflow-x-auto items-center">
+              {categories.map(category => (
+                selectedCategory === category ? (
+                  <button
+                    key={category}
+                    onClick={() => setSelectedCategory(category)}
+                    className="whitespace-nowrap px-4 py-2 rounded-full bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
+                  >
+                    {category === 'all' ? 'All' : category}
+                  </button>
+                ) : (
+                  <button
+                    key={category}
+                    onClick={() => setSelectedCategory(category)}
+                    className="whitespace-nowrap px-2 py-2 text-gray-700 text-sm hover:text-gray-900 transition-colors"
+                  >
+                    {category === 'all' ? 'All' : category}
+                  </button>
+                )
+              ))}
+            </div>
+          </div>
 
           {/* Protocols Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

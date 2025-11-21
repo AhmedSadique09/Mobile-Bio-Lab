@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Users, Beaker, FileText, Activity, AlertCircle } from 'lucide-react';
-import { getUsers, getSamples, getBookings, getActivityLogs } from '../lib/storage';
+import { Users, Beaker, FileText, Activity, Shield } from 'lucide-react';
 import { type User } from '../types';
+import adminService from '../services/admin.service';
 
 interface AdminDashboardProps {
   user: User;
@@ -13,216 +12,232 @@ interface AdminDashboardProps {
 
 export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const [stats, setStats] = useState({
-    totalUsers: 0,
+    activeUsers: 0,
     totalSamples: 0,
-    pendingBookings: 0,
-    activeUsers: 0
+    totalReports: 0,
+    systemActivity: 0
   });
-  const [recentActivity, setRecentActivity] = useState<any[]>([]);
-  const [userRoleData, setUserRoleData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const users = getUsers();
-    const samples = getSamples();
-    const bookings = getBookings();
-    const logs = getActivityLogs();
-
-    setStats({
-      totalUsers: users.length,
-      totalSamples: samples.length,
-      pendingBookings: bookings.filter(b => b.status === 'pending').length,
-      activeUsers: users.filter(u => u.role !== 'admin').length
-    });
-
-    setRecentActivity(logs.slice(0, 5));
-
-    const roleCount = {
-      student: users.filter(u => u.role === 'student').length,
-      researcher: users.filter(u => u.role === 'researcher').length,
-      technician: users.filter(u => u.role === 'technician').length,
-      admin: users.filter(u => u.role === 'admin').length
-    };
-
-    setUserRoleData([
-      { name: 'Students', count: roleCount.student },
-      { name: 'Researchers', count: roleCount.researcher },
-      { name: 'Technicians', count: roleCount.technician },
-      { name: 'Admins', count: roleCount.admin }
-    ]);
+    loadDashboardStats();
   }, []);
 
+  const loadDashboardStats = async () => {
+    try {
+      setLoading(true);
+      const response = await adminService.getDashboardStats();
+      if (response.statusCode === 200 && response.payload) {
+        setStats({
+          activeUsers: response.payload.activeUsers || 0,
+          totalSamples: response.payload.totalSamples || 0,
+          totalReports: response.payload.totalReports || 0,
+          systemActivity: response.payload.systemActivity || 0
+        });
+      }
+    } catch (error) {
+      console.error('Error loading dashboard stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
       <div>
         <h1 className="text-3xl mb-2">Admin Dashboard</h1>
         <p className="text-gray-600">System overview and management</p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+      {/* Stats Grid - 4 Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Active Users Card */}
+        <Card className="border-l-4 border-l-blue-500 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Users</p>
-                <p className="text-2xl mt-1">{stats.totalUsers}</p>
-                <p className="text-xs text-gray-500 mt-1">{stats.activeUsers} active</p>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">Active Users</p>
+                <p className="text-3xl mt-2 font-bold text-gray-900">
+                  {loading ? (
+                    <span className="inline-block animate-pulse">...</span>
+                  ) : (
+                    stats.activeUsers
+                  )}
+                </p>
+                <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                  Activated users
+                </p>
               </div>
-              <Users className="h-8 w-8 text-blue-600" />
+              <div className="p-3 bg-blue-50 rounded-xl">
+                <Users className="h-10 w-10 text-blue-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        {/* Sample Data Card */}
+        <Card className="border-l-4 border-l-green-500 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Samples</p>
-                <p className="text-2xl mt-1">{stats.totalSamples}</p>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">Sample Data</p>
+                <p className="text-3xl mt-2 font-bold text-gray-900">
+                  {loading ? (
+                    <span className="inline-block animate-pulse">...</span>
+                  ) : (
+                    stats.totalSamples
+                  )}
+                </p>
+                <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                  Total samples
+                </p>
               </div>
-              <Beaker className="h-8 w-8 text-green-600" />
+              <div className="p-3 bg-green-50 rounded-xl">
+                <Beaker className="h-10 w-10 text-green-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        {/* Reports Card */}
+        <Card className="border-l-4 border-l-orange-500 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Pending Bookings</p>
-                <p className="text-2xl mt-1">{stats.pendingBookings}</p>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">Reports</p>
+                <p className="text-3xl mt-2 font-bold text-gray-900">
+                  {loading ? (
+                    <span className="inline-block animate-pulse">...</span>
+                  ) : (
+                    stats.totalReports
+                  )}
+                </p>
+                <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                  <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                  Generated reports
+                </p>
               </div>
-              <AlertCircle className="h-8 w-8 text-orange-600" />
+              <div className="p-3 bg-orange-50 rounded-xl">
+                <FileText className="h-10 w-10 text-orange-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        {/* System Activity Card */}
+        <Card className="border-l-4 border-l-purple-500 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">System Activity</p>
-                <p className="text-2xl mt-1">{recentActivity.length}</p>
-                <p className="text-xs text-gray-500 mt-1">Recent logs</p>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">System Activity</p>
+                <p className="text-3xl mt-2 font-bold text-gray-900">
+                  {loading ? (
+                    <span className="inline-block animate-pulse">...</span>
+                  ) : (
+                    stats.systemActivity
+                  )}
+                </p>
+                <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                  <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
+                  Last 7 days
+                </p>
               </div>
-              <Activity className="h-8 w-8 text-purple-600" />
+              <div className="p-3 bg-purple-50 rounded-xl">
+                <Activity className="h-10 w-10 text-purple-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Charts and Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>User Distribution by Role</CardTitle>
-            <CardDescription>Breakdown of users by their roles</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={userRoleData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="count" fill="#3b82f6" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest system activities</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {recentActivity.map((log) => (
-                <div key={log.id} className="flex items-start gap-3 pb-3 border-b last:border-b-0">
-                  <div className="p-2 bg-blue-100 rounded-lg mt-0.5">
-                    <Activity className="h-3 w-3 text-blue-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm">{log.action}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{log.details}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {new Date(log.timestamp).toLocaleString()}
-                    </p>
-                  </div>
+      {/* Admin Features Section */}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">Management Tools</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* User Management */}
+          <Card className="group hover:shadow-2xl transition-all duration-300 cursor-pointer border-2 border-transparent hover:border-blue-300 hover:-translate-y-2 shadow-lg" style={{ background: 'linear-gradient(to bottom right, white, rgb(239 246 255 / 0.3))' }} onClick={() => onNavigate('admin-users')}>
+            <CardHeader className="pb-3">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300" style={{ background: 'linear-gradient(to bottom right, rgb(59 130 246), rgb(37 99 235))' }}>
+                  <Users className="h-7 w-7 text-white" />
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                <div className="flex-1">
+                  <CardTitle className="text-xl font-bold text-gray-800 mb-1">User Management</CardTitle>
+                  <CardDescription className="text-sm text-gray-600">Manage users and permissions</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Button className="w-full bg-blue-500 text-white hover:bg-blue-600 font-semibold transition-all duration-300 shadow-md hover:shadow-lg cursor-pointer" variant="default">
+                Manage Users
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* System Log Review */}
+          <Card className="group hover:shadow-2xl transition-all duration-300 cursor-pointer border-2 border-transparent hover:border-purple-300 hover:-translate-y-2 shadow-lg" style={{ background: 'linear-gradient(to bottom right, white, rgb(250 245 255 / 0.3))' }} onClick={() => onNavigate('admin-logs')}>
+            <CardHeader className="pb-3">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300" style={{ background: 'linear-gradient(to bottom right, rgb(168 85 247), rgb(147 51 234))' }}>
+                  <FileText className="h-7 w-7 text-white" />
+                </div>
+                <div className="flex-1">
+                  <CardTitle className="text-xl font-bold text-gray-800 mb-1">System Logs</CardTitle>
+                  <CardDescription className="text-sm text-gray-600">Review system logs and events</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Button className="w-full bg-purple-500 text-white hover:bg-purple-600 font-semibold transition-all duration-300 shadow-md hover:shadow-lg cursor-pointer" variant="default">
+                View Logs
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Activity History */}
+          <Card className="group hover:shadow-2xl transition-all duration-300 cursor-pointer border-2 border-transparent hover:border-green-300 hover:-translate-y-2 shadow-lg" style={{ background: 'linear-gradient(to bottom right, white, rgb(240 253 244 / 0.3))' }} onClick={() => onNavigate('admin-logs')}>
+            <CardHeader className="pb-3">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300" style={{ background: 'linear-gradient(to bottom right, rgb(34 197 94), rgb(22 163 74))' }}>
+                  <Activity className="h-7 w-7 text-white" />
+                </div>
+                <div className="flex-1">
+                  <CardTitle className="text-xl font-bold text-gray-800 mb-1">Activity History</CardTitle>
+                  <CardDescription className="text-sm text-gray-600">View user activity history</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Button className="w-full bg-green-500 text-white hover:bg-green-600 font-semibold transition-all duration-300 shadow-md hover:shadow-lg cursor-pointer" variant="default">
+                View History
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Data Submission Moderation */}
+          <Card className="group hover:shadow-2xl transition-all duration-300 cursor-pointer border-2 border-transparent hover:border-orange-300 hover:-translate-y-2 shadow-lg" style={{ background: 'linear-gradient(to bottom right, white, rgb(255 247 237 / 0.3))' }} onClick={() => onNavigate('samples')}>
+            <CardHeader className="pb-3">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300" style={{ background: 'linear-gradient(to bottom right, rgb(249 115 22), rgb(234 88 12))' }}>
+                  <Shield className="h-7 w-7 text-white" />
+                </div>
+                <div className="flex-1">
+                  <CardTitle className="text-xl font-bold text-gray-800 mb-1">Sample Moderation</CardTitle>
+                  <CardDescription className="text-sm text-gray-600">Moderate and approve samples</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Button className="w-full bg-orange-500 text-white hover:bg-orange-600 font-semibold transition-all duration-300 shadow-md hover:shadow-lg cursor-pointer" variant="default">
+                Moderate Samples
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-
-      {/* Management Sections */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>User Management</CardTitle>
-            <CardDescription>View and manage users</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => onNavigate('admin-users')} className="w-full">
-              Manage Users
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Protocol Management</CardTitle>
-            <CardDescription>Add and manage protocols</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => onNavigate('admin-protocols')} className="w-full">
-              Manage Protocols
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Activity Logs</CardTitle>
-            <CardDescription>View system activity logs</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => onNavigate('admin-logs')} className="w-full">
-              View Logs
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Button onClick={() => onNavigate('admin-users')} variant="outline" className="h-auto py-4 flex flex-col gap-2">
-              <Users className="h-5 w-5" />
-              <span>View Users</span>
-            </Button>
-            <Button onClick={() => onNavigate('samples')} variant="outline" className="h-auto py-4 flex flex-col gap-2">
-              <Beaker className="h-5 w-5" />
-              <span>All Samples</span>
-            </Button>
-            <Button onClick={() => onNavigate('admin-protocols')} variant="outline" className="h-auto py-4 flex flex-col gap-2">
-              <FileText className="h-5 w-5" />
-              <span>Add Protocol</span>
-            </Button>
-            <Button onClick={() => onNavigate('admin-logs')} variant="outline" className="h-auto py-4 flex flex-col gap-2">
-              <Activity className="h-5 w-5" />
-              <span>Activity Logs</span>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

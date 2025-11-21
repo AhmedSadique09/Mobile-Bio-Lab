@@ -22,6 +22,7 @@ export const getUsers = async (req, res) => {
 export const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
+    const currentUserId = req.user.id; // Get current user ID from JWT token
     
     // Prepare payload with image path if uploaded
     const payload = {
@@ -29,7 +30,7 @@ export const updateUser = async (req, res) => {
       profilePicture: req.file ? `/uploads/${req.file.filename}` : undefined
     };
 
-    const result = await AdminService.updateUser(id, payload);
+    const result = await AdminService.updateUser(id, payload, currentUserId);
     
     return res.status(200).json({
       statusCode: 200,
@@ -79,6 +80,47 @@ export const deleteUser = async (req, res) => {
       statusCode: 200,
       message: result.message || 'User deleted successfully',
       payload: { message: result.message }
+    });
+  } catch (err) {
+    return res.status(err.status || 500).json({
+      statusCode: err.status || 500,
+      message: err.message || 'Internal server error'
+    });
+  }
+};
+
+export const getDashboardStats = async (req, res) => {
+  try {
+    const stats = await AdminService.getDashboardStats();
+    return res.status(200).json({
+      statusCode: 200,
+      message: 'Dashboard stats retrieved successfully',
+      payload: stats
+    });
+  } catch (err) {
+    return res.status(err.status || 500).json({
+      statusCode: err.status || 500,
+      message: err.message || 'Internal server error'
+    });
+  }
+};
+
+export const getSystemLogs = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const { startDate, endDate, actionType } = req.query;
+
+    const result = await AdminService.getSystemLogs(page, limit, {
+      startDate,
+      endDate,
+      actionType
+    });
+
+    return res.status(200).json({
+      statusCode: 200,
+      message: 'System logs retrieved successfully',
+      payload: result
     });
   } catch (err) {
     return res.status(err.status || 500).json({
