@@ -59,7 +59,7 @@ export const updateDeviceConnectionStatus = async (deviceId, isConnected) => {
 };
 
 export const getDevices = async (userId, userRole) => {
-  const whereClause = userRole === 'Admin' 
+  const whereClause = userRole === 'Admin'
     ? { deletedAt: null }
     : { userId, deletedAt: null };
 
@@ -212,8 +212,8 @@ export const deleteDevice = async (deviceId, userId, userRole) => {
     throw { status: 404, message: 'Device not found' };
   }
 
-  device.deletedAt = Date.now();
-  await device.save();
+  // Hard delete
+  await device.destroy();
 
   return { message: 'Device deleted successfully' };
 };

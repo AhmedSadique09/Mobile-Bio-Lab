@@ -29,97 +29,97 @@ const generateChartImage = (data, type = 'bar', width = 800, height = 400) => {
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext('2d');
 
-  // Background
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, width, height);
+    // Background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
 
-  // Chart area
-  const padding = 60;
-  const chartWidth = width - padding * 2;
-  const chartHeight = height - padding * 2;
-  const chartX = padding;
-  const chartY = padding;
+    // Chart area
+    const padding = 60;
+    const chartWidth = width - padding * 2;
+    const chartHeight = height - padding * 2;
+    const chartX = padding;
+    const chartY = padding;
 
-  // Draw grid
-  ctx.strokeStyle = '#e5e7eb';
-  ctx.lineWidth = 1;
-  for (let i = 0; i <= 5; i++) {
-    const y = chartY + (chartHeight / 5) * i;
-    ctx.beginPath();
-    ctx.moveTo(chartX, y);
-    ctx.lineTo(chartX + chartWidth, y);
-    ctx.stroke();
-  }
-
-  if (type === 'bar' && data.length > 0) {
-    const barWidth = chartWidth / data.length * 0.7;
-    const maxValue = Math.max(...data.map(d => d.value));
-    const barSpacing = chartWidth / data.length;
-
-    data.forEach((item, index) => {
-      const barHeight = (item.value / maxValue) * chartHeight;
-      const x = chartX + index * barSpacing + (barSpacing - barWidth) / 2;
-      const y = chartY + chartHeight - barHeight;
-
-      // Bar color
-      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
-      ctx.fillStyle = colors[index % colors.length];
-      ctx.fillRect(x, y, barWidth, barHeight);
-
-      // Label
-      ctx.fillStyle = '#374151';
-      ctx.font = '12px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(item.name.substring(0, 10), x + barWidth / 2, chartY + chartHeight + 15);
-    });
-
-    // Y-axis labels
-    ctx.fillStyle = '#6b7280';
-    ctx.font = '10px Arial';
-    ctx.textAlign = 'right';
+    // Draw grid
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.lineWidth = 1;
     for (let i = 0; i <= 5; i++) {
-      const value = (maxValue / 5) * (5 - i);
       const y = chartY + (chartHeight / 5) * i;
-      ctx.fillText(value.toFixed(0), chartX - 10, y + 4);
-    }
-  } else if (type === 'line' && data.length > 0) {
-    const maxValue = Math.max(...data.map(d => d.value));
-    const pointSpacing = chartWidth / (data.length - 1 || 1);
-
-    ctx.strokeStyle = '#3b82f6';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-
-    data.forEach((item, index) => {
-      const x = chartX + index * pointSpacing;
-      const y = chartY + chartHeight - (item.value / maxValue) * chartHeight;
-      if (index === 0) {
-        ctx.moveTo(x, y);
-      } else {
-        ctx.lineTo(x, y);
-      }
-    });
-    ctx.stroke();
-
-    // Points
-    data.forEach((item, index) => {
-      const x = chartX + index * pointSpacing;
-      const y = chartY + chartHeight - (item.value / maxValue) * chartHeight;
-      ctx.fillStyle = '#3b82f6';
       ctx.beginPath();
-      ctx.arc(x, y, 4, 0, Math.PI * 2);
-      ctx.fill();
-    });
+      ctx.moveTo(chartX, y);
+      ctx.lineTo(chartX + chartWidth, y);
+      ctx.stroke();
+    }
 
-    // Labels
-    ctx.fillStyle = '#374151';
-    ctx.font = '10px Arial';
-    ctx.textAlign = 'center';
-    data.forEach((item, index) => {
-      const x = chartX + index * pointSpacing;
-      ctx.fillText(item.name.substring(0, 8), x, chartY + chartHeight + 15);
-    });
-  }
+    if (type === 'bar' && data.length > 0) {
+      const barWidth = chartWidth / data.length * 0.7;
+      const maxValue = Math.max(...data.map(d => d.value));
+      const barSpacing = chartWidth / data.length;
+
+      data.forEach((item, index) => {
+        const barHeight = (item.value / maxValue) * chartHeight;
+        const x = chartX + index * barSpacing + (barSpacing - barWidth) / 2;
+        const y = chartY + chartHeight - barHeight;
+
+        // Bar color
+        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+        ctx.fillStyle = colors[index % colors.length];
+        ctx.fillRect(x, y, barWidth, barHeight);
+
+        // Label
+        ctx.fillStyle = '#374151';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(item.name.substring(0, 10), x + barWidth / 2, chartY + chartHeight + 15);
+      });
+
+      // Y-axis labels
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '10px Arial';
+      ctx.textAlign = 'right';
+      for (let i = 0; i <= 5; i++) {
+        const value = (maxValue / 5) * (5 - i);
+        const y = chartY + (chartHeight / 5) * i;
+        ctx.fillText(value.toFixed(0), chartX - 10, y + 4);
+      }
+    } else if (type === 'line' && data.length > 0) {
+      const maxValue = Math.max(...data.map(d => d.value));
+      const pointSpacing = chartWidth / (data.length - 1 || 1);
+
+      ctx.strokeStyle = '#3b82f6';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+
+      data.forEach((item, index) => {
+        const x = chartX + index * pointSpacing;
+        const y = chartY + chartHeight - (item.value / maxValue) * chartHeight;
+        if (index === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      });
+      ctx.stroke();
+
+      // Points
+      data.forEach((item, index) => {
+        const x = chartX + index * pointSpacing;
+        const y = chartY + chartHeight - (item.value / maxValue) * chartHeight;
+        ctx.fillStyle = '#3b82f6';
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Labels
+      ctx.fillStyle = '#374151';
+      ctx.font = '10px Arial';
+      ctx.textAlign = 'center';
+      data.forEach((item, index) => {
+        const x = chartX + index * pointSpacing;
+        ctx.fillText(item.name.substring(0, 8), x, chartY + chartHeight + 15);
+      });
+    }
 
     return canvas.toBuffer('image/png');
   } catch (error) {
@@ -157,10 +157,10 @@ const generateMapImage = (samples, width = 800, height = 400) => {
       return canvas.toBuffer('image/png');
     }
 
-  // Calculate bounds
-  const lats = samples.map(s => parseFloat(s.latitude)).filter(l => !isNaN(l));
-  const lngs = samples.map(s => parseFloat(s.longitude)).filter(l => !isNaN(l));
-  
+    // Calculate bounds
+    const lats = samples.map(s => parseFloat(s.latitude)).filter(l => !isNaN(l));
+    const lngs = samples.map(s => parseFloat(s.longitude)).filter(l => !isNaN(l));
+
     if (lats.length === 0 || lngs.length === 0) {
       ctx.fillStyle = '#6b7280';
       ctx.font = '24px Arial';
@@ -211,14 +211,14 @@ const generateMapImage = (samples, width = 800, height = 400) => {
     samples.forEach(sample => {
       const lat = parseFloat(sample.latitude);
       const lng = parseFloat(sample.longitude);
-      
+
       if (isNaN(lat) || isNaN(lng)) return;
 
       const x = padding + ((lng - minLng) / lngRange) * mapWidth;
       const y = padding + mapHeight - ((lat - minLat) / latRange) * mapHeight;
 
       const color = colors[sample.sampleType] || colors.other;
-      
+
       // Draw point
       ctx.fillStyle = color;
       ctx.beginPath();
@@ -242,7 +242,7 @@ const generateMapImage = (samples, width = 800, height = 400) => {
         ctx.beginPath();
         ctx.arc(legendX, legendY, 4, 0, Math.PI * 2);
         ctx.fill();
-        
+
         ctx.fillStyle = '#374151';
         ctx.font = '10px Arial';
         ctx.textAlign = 'left';
@@ -380,7 +380,7 @@ export const generateReport = async (userId, generatedBy, options = {}) => {
     }
 
     // Generate description
-    const reportDescription = userInfo 
+    const reportDescription = userInfo
       ? `Report for ${userInfo.firstName} ${userInfo.lastName} - Completed samples only`
       : 'User report - Completed samples only';
 
@@ -397,17 +397,17 @@ export const generateReport = async (userId, generatedBy, options = {}) => {
     });
 
     // Build query filters - only completed samples
-    const whereClause = { 
+    const whereClause = {
       deletedAt: null,
       status: 'completed' // Only completed samples
     };
-    
+
     if (!userId) {
       throw new Error('User ID is required for report generation');
     }
-    
+
     whereClause.userId = userId;
-    
+
     // If specific sample IDs are provided, filter by them and verify they belong to the user
     if (sampleIds && Array.isArray(sampleIds) && sampleIds.length > 0) {
       whereClause.id = { [Op.in]: sampleIds };
@@ -706,7 +706,7 @@ export const generateReport = async (userId, generatedBy, options = {}) => {
       generatedBy,
       options
     });
-    
+
     // Update report with error if it was created
     if (report && report.id) {
       try {
@@ -759,15 +759,15 @@ export const getReports = async (userId = null, isAdmin = false, page = 1, limit
     const { count, rows } = await Report.findAndCountAll({
       where: whereClause,
       include: [
-        { 
-          model: User, 
-          as: 'User', 
+        {
+          model: User,
+          as: 'User',
           attributes: ['id', 'firstName', 'lastName', 'email'],
           required: false
         },
-        { 
-          model: User, 
-          as: 'GeneratedBy', 
+        {
+          model: User,
+          as: 'GeneratedBy',
           attributes: ['id', 'firstName', 'lastName', 'email'],
           required: false
         }
@@ -803,7 +803,7 @@ export const getReports = async (userId = null, isAdmin = false, page = 1, limit
  */
 export const getReportById = async (reportId, userId = null, isAdmin = false) => {
   const whereClause = { id: reportId, deletedAt: null };
-  
+
   if (!isAdmin && userId) {
     // Regular users can only see reports generated FOR them (userId field matches)
     whereClause.userId = userId;
@@ -828,7 +828,7 @@ export const getReportById = async (reportId, userId = null, isAdmin = false) =>
  */
 export const deleteReport = async (reportId, userId = null, isAdmin = false) => {
   const whereClause = { id: reportId, deletedAt: null };
-  
+
   if (!isAdmin && userId) {
     // Regular users can only delete reports generated FOR them (userId field matches)
     whereClause.userId = userId;
@@ -836,26 +836,26 @@ export const deleteReport = async (reportId, userId = null, isAdmin = false) => 
   // Admins can delete all reports (no userId filter)
 
   const report = await Report.findOne({ where: whereClause });
-  
+
   if (!report) {
     const error = new Error('Report not found');
     error.status = 404;
     throw error;
   }
 
-    // Delete file
-    if (report.filePath) {
-      // Handle both /reports/... and reports/... paths
-      const filePath = report.filePath.startsWith('/')
-        ? path.join(__dirname, '..', report.filePath)
-        : path.join(reportsDir, path.basename(report.filePath));
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
+  // Delete file
+  if (report.filePath) {
+    // Handle both /reports/... and reports/... paths
+    const filePath = report.filePath.startsWith('/')
+      ? path.join(__dirname, '..', report.filePath)
+      : path.join(reportsDir, path.basename(report.filePath));
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
     }
+  }
 
-  // Soft delete
-  await report.update({ deletedAt: Date.now() });
+  // Hard delete
+  await report.destroy();
 
   return report;
 };

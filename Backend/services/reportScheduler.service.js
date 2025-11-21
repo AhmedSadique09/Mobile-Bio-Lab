@@ -11,10 +11,10 @@ let scheduledJobs = [];
 const generateDailyReport = async () => {
   try {
     console.log('[Report Scheduler] Generating daily report...');
-    
+
     // Get admin user
-    const admin = await User.findOne({ 
-      where: { role: 'Admin', deletedAt: null } 
+    const admin = await User.findOne({
+      where: { role: 'Admin', deletedAt: null }
     });
 
     if (!admin) {
@@ -44,10 +44,10 @@ const generateDailyReport = async () => {
 const generateWeeklyReport = async () => {
   try {
     console.log('[Report Scheduler] Generating weekly report...');
-    
+
     // Get admin user
-    const admin = await User.findOne({ 
-      where: { role: 'Admin', deletedAt: null } 
+    const admin = await User.findOne({
+      where: { role: 'Admin', deletedAt: null }
     });
 
     if (!admin) {
@@ -58,7 +58,7 @@ const generateWeeklyReport = async () => {
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 7);
-    
+
     const startDateStr = startDate.toISOString().split('T')[0];
     const endDateStr = endDate.toISOString().split('T')[0];
 
@@ -80,10 +80,10 @@ const generateWeeklyReport = async () => {
 const generateMonthlyReport = async () => {
   try {
     console.log('[Report Scheduler] Generating monthly report...');
-    
+
     // Get admin user
-    const admin = await User.findOne({ 
-      where: { role: 'Admin', deletedAt: null } 
+    const admin = await User.findOne({
+      where: { role: 'Admin', deletedAt: null }
     });
 
     if (!admin) {
@@ -94,7 +94,7 @@ const generateMonthlyReport = async () => {
     const endDate = new Date();
     const startDate = new Date();
     startDate.setMonth(startDate.getMonth() - 1);
-    
+
     const startDateStr = startDate.toISOString().split('T')[0];
     const endDateStr = endDate.toISOString().split('T')[0];
 
@@ -116,10 +116,10 @@ const generateMonthlyReport = async () => {
 const generateUserReports = async () => {
   try {
     console.log('[Report Scheduler] Generating user reports...');
-    
+
     // Get admin user
-    const admin = await User.findOne({ 
-      where: { role: 'Admin', deletedAt: null } 
+    const admin = await User.findOne({
+      where: { role: 'Admin', deletedAt: null }
     });
 
     if (!admin) {
@@ -129,16 +129,16 @@ const generateUserReports = async () => {
 
     // Get all active users (excluding admin)
     const users = await User.findAll({
-      where: { 
+      where: {
         role: { [Op.ne]: 'Admin' },
-        deletedAt: null 
+        deletedAt: null
       }
     });
 
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 7); // Last 7 days
-    
+
     const startDateStr = startDate.toISOString().split('T')[0];
     const endDateStr = endDate.toISOString().split('T')[0];
 

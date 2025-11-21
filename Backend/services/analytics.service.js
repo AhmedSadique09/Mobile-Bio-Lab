@@ -8,7 +8,7 @@ import { Sequelize } from 'sequelize';
 // User Analytics - Get user's own data statistics
 export const getUserAnalytics = async (userId, filters = {}) => {
   const { startDate, endDate, sampleType } = filters;
-  
+
   const whereClause = {
     userId,
     deletedAt: null
@@ -183,7 +183,7 @@ export const getUserAnalytics = async (userId, filters = {}) => {
 // Admin Analytics - Get system-wide statistics
 export const getAdminAnalytics = async (filters = {}) => {
   const { startDate, endDate, sampleType, userId } = filters;
-  
+
   const whereClause = {
     deletedAt: null
   };

@@ -10,14 +10,14 @@ export const getUsers = async (queryParams) => {
   // Build search conditions
   const searchConditions = search
     ? {
-        [Op.or]: [
-          { firstName: { [Op.like]: `%${search}%` } },
-          { lastName: { [Op.like]: `%${search}%` } },
-          { email: { [Op.like]: `%${search}%` } },
-          { mobile: { [Op.like]: `%${search}%` } },
-          { city: { [Op.like]: `%${search}%` } }
-        ]
-      }
+      [Op.or]: [
+        { firstName: { [Op.like]: `%${search}%` } },
+        { lastName: { [Op.like]: `%${search}%` } },
+        { email: { [Op.like]: `%${search}%` } },
+        { mobile: { [Op.like]: `%${search}%` } },
+        { city: { [Op.like]: `%${search}%` } }
+      ]
+    }
     : {};
 
   // Build where clause - exclude deleted users and admin users
@@ -130,7 +130,7 @@ export const deleteUser = async (userId) => {
   await user.destroy();
 
   // Return profile picture path so controller can delete the file
-  return { 
+  return {
     message: 'User deleted successfully',
     profilePicturePath: profilePicturePath
   };
