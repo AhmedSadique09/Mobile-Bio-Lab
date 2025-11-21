@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from './ui/alert';
 import { Badge } from './ui/badge';
 import { QrCode, Bluetooth, BluetoothConnected, BluetoothOff, MapPin, CheckCircle, Loader2, AlertCircle, Activity } from 'lucide-react';
 import { type User } from '../types';
-import { addNotification, addActivityLog } from '../lib/storage';
+import { addActivityLog } from '../lib/storage';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import sampleService from '../services/sample.service';
 import BLEService from '../services/ble.service';
@@ -172,15 +172,7 @@ export function AddSample({ user, onNavigate }: AddSampleProps) {
             salinity: sample.salinity ? sample.salinity.toString() : formData.salinity
           });
 
-          addNotification({
-            id: Date.now().toString(),
-            userId: user.id,
-            title: 'Sample Found',
-            message: `Sample ${parsed.sampleId} loaded successfully`,
-            type: 'sample',
-            read: false,
-            createdAt: new Date().toISOString()
-          });
+          // Notification will be created by backend when sample is saved
         }
       } catch (fetchError: any) {
         // Sample not found - log the scan event and show dialog
@@ -627,15 +619,8 @@ export function AddSample({ user, onNavigate }: AddSampleProps) {
       });
 
       if (response.statusCode === 201) {
-        addNotification({
-          id: Date.now().toString(),
-          userId: user.id,
-          title: 'Sample Added',
-          message: `New sample ${formData.sampleId} has been created`,
-          type: 'sample',
-          read: false,
-          createdAt: new Date().toISOString()
-        });
+        // Notification is now handled automatically by the backend
+        // No need to create local notification
 
         addActivityLog({
           id: Date.now().toString(),

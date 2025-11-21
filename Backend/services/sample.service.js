@@ -2,6 +2,7 @@ import Sample from '../models/Sample.js';
 import User from '../models/User.js';
 import { Op } from 'sequelize';
 import * as ReportService from './report.service.js';
+import * as NotificationService from './notification.service.js';
 
 export const createSample = async (userId, sampleData) => {
   // Check if user exists and is not deleted
@@ -41,6 +42,20 @@ export const createSample = async (userId, sampleData) => {
       attributes: ['id', 'firstName', 'lastName', 'email', 'mobile', 'city', 'role', 'profilePicture']
     }]
   });
+
+  // Create notification for sample creation
+  try {
+    await NotificationService.createNotification(
+      userId,
+      'New Sample Added',
+      `Sample ${sampleData.sampleId} has been successfully added to the database.`,
+      'sample',
+      { sampleId: sample.id, sampleIdString: sampleData.sampleId }
+    );
+  } catch (notificationError) {
+    // Log error but don't fail sample creation
+    console.error('Error creating notification for sample creation:', notificationError);
+  }
 
   return sampleWithUser;
 };
@@ -219,6 +234,28 @@ export const updateSampleStatus = async (sampleId, newStatus, userId = null, use
 
   // Update status
   await sample.update({ status: newStatus });
+
+  // Create notification for status change
+  if (oldStatus !== newStatus) {
+    try {
+      const statusMessages = {
+        'pending': 'is pending',
+        'processing': 'is now in progress',
+        'completed': 'has been completed'
+      };
+
+      await NotificationService.createNotification(
+        sample.userId,
+        'Sample Status Updated',
+        `Sample ${sample.sampleId} status changed from ${oldStatus} to ${newStatus}. ${statusMessages[newStatus] || 'status updated'}.`,
+        'sample',
+        { sampleId: sample.id, sampleIdString: sample.sampleId, oldStatus, newStatus }
+      );
+    } catch (notificationError) {
+      // Log error but don't fail status update
+      console.error('Error creating notification for status change:', notificationError);
+    }
+  }
 
   // If admin changed status to completed, automatically generate report for the user
   if (userRole === 'Admin' && newStatus === 'completed' && oldStatus !== 'completed') {

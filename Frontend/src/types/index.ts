@@ -56,13 +56,21 @@ export interface Protocol {
 }
 
 export interface Notification {
-  id: string;
-  userId: string;
+  id: number;
+  userId: number;
   title: string;
   message: string;
   type: 'sample' | 'report' | 'booking' | 'system';
   read: boolean;
   createdAt: string;
+  metadata?: {
+    sampleId?: number;
+    sampleIdString?: string;
+    reportId?: number;
+    oldStatus?: string;
+    newStatus?: string;
+    [key: string]: any;
+  };
 }
 
 export interface ActivityLog {

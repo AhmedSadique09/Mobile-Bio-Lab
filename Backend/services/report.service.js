@@ -11,6 +11,7 @@ import ScanEvent from '../models/ScanEvent.js';
 import Report from '../models/Report.js';
 import { Op } from 'sequelize';
 import * as AnalyticsService from './analytics.service.js';
+import * as NotificationService from './notification.service.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -396,6 +397,20 @@ export const generateReport = async (userId, generatedBy, options = {}) => {
       metadata: {}
     });
 
+    // Create notification for report generation started
+    try {
+      await NotificationService.createNotification(
+        userId,
+        'Report Generation Started',
+        `A new report "${reportTitle}" is being generated for your completed samples.`,
+        'report',
+        { reportId: report.id, status: 'generating' }
+      );
+    } catch (notificationError) {
+      // Log error but don't fail report creation
+      console.error('Error creating notification for report generation:', notificationError);
+    }
+
     // Build query filters - only completed samples
     const whereClause = {
       deletedAt: null,
@@ -665,6 +680,7 @@ export const generateReport = async (userId, generatedBy, options = {}) => {
 
     // Update report record with relative path
     const relativeFilePath = `reports/${fileName}`;
+    const oldStatus = report.status;
     await report.update({
       filePath: relativeFilePath,
       fileSize,
@@ -676,6 +692,22 @@ export const generateReport = async (userId, generatedBy, options = {}) => {
       }
     });
     console.log('Report file path saved:', relativeFilePath);
+
+    // Create notification for report completion
+    if (oldStatus !== 'completed') {
+      try {
+        await NotificationService.createNotification(
+          userId,
+          'Report Generated Successfully',
+          `Your report "${reportTitle}" has been generated successfully and is ready for download.`,
+          'report',
+          { reportId: report.id, status: 'completed', filePath: relativeFilePath }
+        );
+      } catch (notificationError) {
+        // Log error but don't fail report update
+        console.error('Error creating notification for report completion:', notificationError);
+      }
+    }
 
     // Reload the report to get the latest data
     await report.reload({
@@ -710,10 +742,27 @@ export const generateReport = async (userId, generatedBy, options = {}) => {
     // Update report with error if it was created
     if (report && report.id) {
       try {
+        const oldStatus = report.status;
         await report.update({
           status: 'failed',
           errorMessage: error.message || 'Unknown error occurred'
         });
+
+        // Create notification for report failure
+        if (oldStatus !== 'failed' && report.userId) {
+          try {
+            await NotificationService.createNotification(
+              report.userId,
+              'Report Generation Failed',
+              `Report generation failed: ${error.message || 'Unknown error occurred'}. Please try again or contact support.`,
+              'report',
+              { reportId: report.id, status: 'failed', errorMessage: error.message }
+            );
+          } catch (notificationError) {
+            // Log error but don't fail report update
+            console.error('Error creating notification for report failure:', notificationError);
+          }
+        }
       } catch (updateError) {
         console.error('Failed to update report status:', updateError);
       }

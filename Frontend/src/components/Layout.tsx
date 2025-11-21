@@ -14,10 +14,12 @@ import {
   Activity,
   Settings,
   Bluetooth,
-  BarChart3
+  BarChart3,
+  Check,
+  Trash2
 } from 'lucide-react';
 import { type User, type Notification } from '../types';
-import { getNotifications, markNotificationAsRead } from '../lib/storage';
+import notificationService from '../services/notification.service';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 
@@ -33,21 +35,59 @@ export function Layout({ user, currentPage, onNavigate, onLogout, children }: La
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
 
   useEffect(() => {
-    loadNotifications();
+    // Only load notifications for users
+    if (user.role !== 'admin') {
+      loadNotifications();
+      // Refresh notifications every 30 seconds
+      const interval = setInterval(() => {
+        loadNotifications();
+      }, 30000);
+
+      return () => clearInterval(interval);
+    }
   }, [user]);
 
-  const loadNotifications = () => {
-    const allNotifications = getNotifications();
-    const userNotifications = allNotifications.filter(n => n.userId === user.id);
-    setNotifications(userNotifications);
-    setUnreadCount(userNotifications.filter(n => !n.read).length);
+  const loadNotifications = async () => {
+    try {
+      setLoadingNotifications(true);
+      const response = await notificationService.getNotifications(1, 50);
+      if (response.statusCode === 200 && response.payload) {
+        setNotifications(response.payload.notifications || []);
+      }
+
+      // Load unread count
+      const countResponse = await notificationService.getUnreadCount();
+      if (countResponse.statusCode === 200 && countResponse.payload) {
+        setUnreadCount(countResponse.payload.count || 0);
+      }
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+    } finally {
+      setLoadingNotifications(false);
+    }
   };
 
-  const handleNotificationClick = (notificationId: string) => {
-    markNotificationAsRead(notificationId);
-    loadNotifications();
+  const handleMarkAsRead = async (e: React.MouseEvent, notificationId: number) => {
+    e.stopPropagation(); // Prevent triggering the parent click handler
+    try {
+      await notificationService.markAsRead(notificationId);
+      await loadNotifications();
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const handleDeleteNotification = async (e: React.MouseEvent, notificationId: number) => {
+    e.stopPropagation(); // Prevent triggering the parent click handler
+    try {
+      await notificationService.deleteNotification(notificationId);
+      await loadNotifications();
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
   };
 
   const menuItems = user.role === 'admin' ? [
@@ -135,52 +175,97 @@ export function Layout({ user, currentPage, onNavigate, onLogout, children }: La
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Notifications */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" className="relative">
-                  <Bell className="h-5 w-5" />
-                  {unreadCount > 0 && (
-                    <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                      {unreadCount}
-                    </Badge>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80" align="end">
-                <div className="space-y-3">
-                  <h3 className="text-sm">Notifications</h3>
-                  {notifications.length === 0 ? (
-                    <p className="text-sm text-gray-500 py-4 text-center">No notifications</p>
-                  ) : (
-                    <div className="space-y-2 max-h-96 overflow-y-auto">
-                      {notifications.map(notification => (
-                        <div
-                          key={notification.id}
-                          className={`p-3 rounded-lg cursor-pointer border ${
-                            notification.read ? 'bg-white' : 'bg-blue-50 border-blue-200'
-                          }`}
-                          onClick={() => handleNotificationClick(notification.id)}
+            {/* Notifications - Only show for non-admin users */}
+            {user.role !== 'admin' && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="relative">
+                    <Bell className="h-5 w-5" />
+                    {unreadCount > 0 && (
+                      <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
+                        {unreadCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80" align="end">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold">Notifications</h3>
+                      {unreadCount > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={async () => {
+                            try {
+                              await notificationService.markAllAsRead();
+                              await loadNotifications();
+                            } catch (error) {
+                              console.error('Error marking all as read:', error);
+                            }
+                          }}
                         >
-                          <div className="flex gap-2">
-                            <div className="mt-0.5">
-                              {getNotificationIcon(notification.type)}
+                          <Check className="h-3 w-3 mr-1" />
+                          Mark All Read
+                        </Button>
+                      )}
+                    </div>
+                    {loadingNotifications ? (
+                      <p className="text-sm text-gray-500 py-4 text-center">Loading notifications...</p>
+                    ) : notifications.length === 0 ? (
+                      <p className="text-sm text-gray-500 py-4 text-center">No notifications</p>
+                    ) : (
+                      <div className="space-y-2 max-h-96 overflow-y-auto">
+                        {notifications.map(notification => (
+                          <div
+                            key={notification.id}
+                            className={`p-3 rounded-lg border ${
+                              notification.read ? 'bg-white' : 'bg-blue-50 border-blue-200'
+                            }`}
+                          >
+                            <div className="flex gap-2">
+                              <div className="mt-0.5">
+                                {getNotificationIcon(notification.type)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium">{notification.title}</p>
+                                <p className="text-xs text-gray-600 mt-1">{notification.message}</p>
+                                <p className="text-xs text-gray-400 mt-1">
+                                  {new Date(notification.createdAt).toLocaleString()}
+                                </p>
+                              </div>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm">{notification.title}</p>
-                              <p className="text-xs text-gray-600 mt-1">{notification.message}</p>
-                              <p className="text-xs text-gray-400 mt-1">
-                                {new Date(notification.createdAt).toLocaleString()}
-                              </p>
+                            <div className="flex gap-2 mt-2 pt-2 border-t">
+                              {!notification.read && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs flex-1"
+                                  onClick={(e) => handleMarkAsRead(e, notification.id)}
+                                >
+                                  <Check className="h-3 w-3 mr-1" />
+                                  Mark as Read
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={(e) => handleDeleteNotification(e, notification.id)}
+                              >
+                                <Trash2 className="h-3 w-3 mr-1" />
+                                Delete
+                              </Button>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
 
             {/* User Menu */}
             <Popover>

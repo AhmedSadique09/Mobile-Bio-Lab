@@ -10,6 +10,7 @@ import bleRoutes from './routes/ble.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import reportRoutes from './routes/report.routes.js';
 import protocolRoutes from './routes/protocol.routes.js';
+import notificationRoutes from './routes/notification.routes.js';
 import bodyParser from 'body-parser';
 import { sequelize } from './db/mysql.js';
 import './models/User.js';
@@ -18,6 +19,7 @@ import './models/Sample.js';
 import './models/ScanEvent.js';
 import './models/Report.js';
 import './models/Protocol.js';
+import './models/Notification.js';
 import { startScheduler } from './services/reportScheduler.service.js';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './swagger.config.js';
@@ -59,6 +61,7 @@ app.use('/api/ble', bleRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/protocols', protocolRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);
