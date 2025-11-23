@@ -38,7 +38,7 @@ const Protocol = sequelize.define('Protocol', {
         allowNull: false,
         references: {
             model: 'Users',
-            key: 'email'
+            key: 'id'
         },
         comment: 'Admin who created this protocol'
     },
@@ -47,7 +47,7 @@ const Protocol = sequelize.define('Protocol', {
         allowNull: true,
         references: {
             model: 'Users',
-            key: 'email'
+            key: 'id'
         },
         comment: 'Admin who last updated this protocol'
     },
@@ -56,7 +56,13 @@ const Protocol = sequelize.define('Protocol', {
         defaultValue: 0,
         comment: 'Number of times protocol has been viewed'
     },
+    deletedAt: {
+        type: DataTypes.BIGINT,
+        allowNull: true,
+        comment: 'Soft delete timestamp'
+    },
 }, {
+    tableName: 'protocols',
     timestamps: true,
     paranoid: false,
     indexes: [

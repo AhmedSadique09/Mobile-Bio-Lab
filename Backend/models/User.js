@@ -11,7 +11,7 @@ const User = sequelize.define('User', {
   city: DataTypes.STRING,
   profilePicture: DataTypes.STRING,
   isVerified: { type: DataTypes.BOOLEAN, defaultValue: false },
-  isActivated: { type: DataTypes.BOOLEAN, defaultValue: false },
+  isActivated: { type: DataTypes.BOOLEAN, defaultValue: true },
   otp: { type: DataTypes.STRING, allowNull: true },
   otpExpireAt: { type: DataTypes.BIGINT, allowNull: true },
   deletedAt: { type: DataTypes.BIGINT, allowNull: true }

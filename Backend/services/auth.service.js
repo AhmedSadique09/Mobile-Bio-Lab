@@ -67,12 +67,6 @@ export const login = async (loginDto) => {
     throw err;
   }
 
-  if (user.isActivated === false) {
-    const err = new Error('User is inactive');
-    err.status = 403;
-    throw err;
-  }
-
   if (!user.isVerified) {
     const OTP = generateOTP();
     const OTPExpireAt = generateExpiryTime();
@@ -154,12 +148,6 @@ export const forgotPassword = async ({ email }) => {
     throw err;
   }
 
-  if (user.isActivated === false) {
-    const err = new Error('User is inactive');
-    err.status = 403;
-    throw err;
-  }
-
   if (!user.isVerified) {
     const err = new Error('Email is not verified yet. Please check your email.');
     err.status = 409;
@@ -190,12 +178,6 @@ export const resetPassword = async ({ email, newPassword }) => {
 
   if (user.deletedAt) {
     const err = new Error('User already deleted');
-    err.status = 403;
-    throw err;
-  }
-
-  if (user.isActivated === false) {
-    const err = new Error('User is inactive');
     err.status = 403;
     throw err;
   }
@@ -255,12 +237,6 @@ export const resendOTP = async ({ email }) => {
 
   if (user.deletedAt) {
     const err = new Error('User already deleted');
-    err.status = 403;
-    throw err;
-  }
-
-  if (user.isActivated === false) {
-    const err = new Error('User is inactive');
     err.status = 403;
     throw err;
   }

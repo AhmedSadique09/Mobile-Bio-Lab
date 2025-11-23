@@ -277,7 +277,7 @@ export function AdminDataVisualization({ user }: AdminDataVisualizationProps) {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -286,17 +286,6 @@ export function AdminDataVisualization({ user }: AdminDataVisualizationProps) {
                 <p className="text-2xl mt-1 font-bold">{samples.length}</p>
               </div>
               <BarChart3 className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Active Users</p>
-                <p className="text-2xl mt-1 font-bold">{allUsers.length}</p>
-              </div>
-              <Users className="h-8 w-8 text-green-600" />
             </div>
           </CardContent>
         </Card>

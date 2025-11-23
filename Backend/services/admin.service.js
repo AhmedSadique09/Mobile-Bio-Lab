@@ -157,8 +157,7 @@ export const getDashboardStats = async () => {
     const activeUsersCount = await User.count({
       where: {
         deletedAt: null,
-        role: { [Op.ne]: 'Admin' },
-        isActivated: true
+        role: { [Op.ne]: 'Admin' }
       }
     });
 
