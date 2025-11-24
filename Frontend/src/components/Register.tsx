@@ -11,9 +11,9 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import authService from '../services/auth.service';
 import type { UserType } from '../interfaces/auth.interface';
 
-interface RegisterProps {}
+interface RegisterProps { }
 
-export function Register({}: RegisterProps) {
+export function Register({ }: RegisterProps) {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     firstName: '',
@@ -25,8 +25,9 @@ export function Register({}: RegisterProps) {
     confirmPassword: '',
     role: '' as 'student' | 'researcher' | 'technician' | '',
     city: '',
-    profilePicture: ''
   });
+  const [profilePicture, setProfilePicture] = useState<File | null>(null);
+  const [profilePicturePreview, setProfilePicturePreview] = useState<string>('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -71,16 +72,23 @@ export function Register({}: RegisterProps) {
 
       const userType = userTypeMap[formData.role] || 'Student';
 
-      // Call API
-      const response = await authService.register({
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
-        email: formData.email.trim().toLowerCase(),
-        password: formData.password,
-        userType: userType,
-        mobile: formData.mobile.trim(),
-        city: formData.city.trim(),
-      });
+      // Create FormData for file upload
+      const formDataToSend = new FormData();
+      formDataToSend.append('firstName', formData.firstName.trim());
+      formDataToSend.append('lastName', formData.lastName.trim());
+      formDataToSend.append('email', formData.email.trim().toLowerCase());
+      formDataToSend.append('password', formData.password);
+      formDataToSend.append('userType', userType);
+      formDataToSend.append('mobile', formData.mobile.trim());
+      formDataToSend.append('city', formData.city.trim());
+
+      // Add profile picture if selected
+      if (profilePicture) {
+        formDataToSend.append('profilePicture', profilePicture);
+      }
+
+      // Call API with FormData
+      const response = await authService.registerWithFile(formDataToSend);
 
       if (response.statusCode === 201) {
         setSuccess(true);
@@ -104,9 +112,13 @@ export function Register({}: RegisterProps) {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Store the actual file object
+      setProfilePicture(file);
+
+      // Create preview URL
       const reader = new FileReader();
       reader.onloadend = () => {
-        setFormData({ ...formData, profilePicture: reader.result as string });
+        setProfilePicturePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
@@ -156,9 +168,9 @@ export function Register({}: RegisterProps) {
                 <Label className="text-sm font-medium text-gray-700">Profile Picture</Label>
                 <div className="flex items-center gap-4">
                   <div className="flex">
-                    {formData.profilePicture ? (
+                    {profilePicturePreview ? (
                       <Avatar className="w-16 h-16 border-2 border-gray-200">
-                        <AvatarImage src={formData.profilePicture} alt="Profile" />
+                        <AvatarImage src={profilePicturePreview} alt="Profile" />
                         <AvatarFallback className="bg-gray-100 text-gray-600 text-sm font-medium">
                           {formData.firstName?.[0]?.toUpperCase() || formData.lastName?.[0]?.toUpperCase() || 'U'}
                         </AvatarFallback>
@@ -185,7 +197,7 @@ export function Register({}: RegisterProps) {
                       className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
                     >
                       <Upload className="h-4 w-4 mr-2" />
-                      {formData.profilePicture ? 'Change Photo' : 'Upload Photo'}
+                      {profilePicturePreview ? 'Change Photo' : 'Upload Photo'}
                     </Button>
                   </div>
                 </div>
@@ -359,8 +371,8 @@ export function Register({}: RegisterProps) {
 
               {/* Submit Button */}
               <div className="pt-6 border-t border-gray-200 space-y-4">
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   disabled={isLoading}
                   className="w-full h-11 bg-gray-900 hover:bg-gray-800 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >

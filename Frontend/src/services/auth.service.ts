@@ -26,18 +26,32 @@ class AuthService extends HttpService {
   };
 
   /**
+   * Register a new user with file upload (multipart/form-data)
+   * @param formData FormData containing user data and profile picture
+   * @returns Register response
+   */
+  registerWithFile = async (formData: FormData): Promise<RegisterResponse> => {
+    const response = await this.post('auth/register', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response as RegisterResponse;
+  };
+
+  /**
    * Login user
    * @param data Login request data
    * @returns Login response with user and token
    */
   login = async (data: LoginRequest): Promise<LoginResponse> => {
     const response = await this.post('auth/login', data);
-    
+
     // If login is successful and token exists, set it
     if (response.payload?.token) {
       HttpService.setToken(response.payload.token);
     }
-    
+
     return response as LoginResponse;
   };
 
@@ -68,12 +82,12 @@ class AuthService extends HttpService {
    */
   verifyEmail = async (data: VerifyEmailRequest): Promise<VerifyEmailResponse> => {
     const response = await this.post('auth/verify-email', data);
-    
+
     // If verification is successful and token exists, set it
     if (response.payload?.token) {
       HttpService.setToken(response.payload.token);
     }
-    
+
     return response as VerifyEmailResponse;
   };
 
