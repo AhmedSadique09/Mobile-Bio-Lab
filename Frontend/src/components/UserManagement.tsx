@@ -16,6 +16,7 @@ import {
 import { Search, Edit, Trash2, User as UserIcon, ChevronLeft, ChevronRight, Loader2, Upload, Mail, Phone, MapPin, UserCircle, Camera } from 'lucide-react';
 import { type User } from '../types';
 import adminService from '../services/admin.service';
+import { toast } from 'sonner';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -120,11 +121,18 @@ export function UserManagement({ currentUser }: UserManagementProps) {
   const handleDelete = async () => {
     if (deleteUserId) {
       try {
-        await adminService.deleteUser(deleteUserId);
-        loadUsers();
-        setDeleteUserId(null);
-      } catch (error) {
+        const response = await adminService.deleteUser(deleteUserId);
+        if (response.statusCode === 200) {
+          toast.success('User deleted successfully');
+          loadUsers();
+          setDeleteUserId(null);
+        } else {
+          toast.error(response.message || 'Failed to delete user');
+        }
+      } catch (error: any) {
         console.error('Error deleting user:', error);
+        const errorMessage = error?.response?.data?.message || error?.message || 'Failed to delete user';
+        toast.error(errorMessage);
       }
     }
   };

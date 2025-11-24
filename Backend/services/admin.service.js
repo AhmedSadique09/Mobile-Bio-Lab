@@ -3,6 +3,10 @@ import Sample from '../models/Sample.js';
 import Report from '../models/Report.js';
 import ScanEvent from '../models/ScanEvent.js';
 import Notification from '../models/Notification.js';
+import Booking from '../models/Booking.js';
+import BLEDevice from '../models/BLEDevice.js';
+import BLEReading from '../models/BLEReading.js';
+import Protocol from '../models/Protocol.js';
 import { Op } from 'sequelize';
 
 export const getUsers = async (queryParams) => {
@@ -137,8 +141,74 @@ export const deleteUser = async (userId) => {
   // Store profile picture path before deletion (if exists)
   const profilePicturePath = user.profilePicture;
 
+  // Delete all related records before deleting user to avoid foreign key constraint errors
+  // Use force: true to permanently delete (bypass soft delete)
+  try {
+    await Booking.destroy({ where: { userId: userId }, force: true });
+  } catch (err) {
+    console.warn('Error deleting bookings:', err.message);
+  }
+  
+  try {
+    await Sample.destroy({ where: { userId: userId }, force: true });
+  } catch (err) {
+    console.warn('Error deleting samples:', err.message);
+  }
+  
+  try {
+    await Report.destroy({ 
+      where: { 
+        [Op.or]: [
+          { userId: userId },
+          { generatedBy: userId }
+        ]
+      }, 
+      force: true 
+    });
+  } catch (err) {
+    console.warn('Error deleting reports:', err.message);
+  }
+  
+  try {
+    await ScanEvent.destroy({ where: { userId: userId }, force: true });
+  } catch (err) {
+    console.warn('Error deleting scan events:', err.message);
+  }
+  
+  try {
+    await Notification.destroy({ where: { userId: userId }, force: true });
+  } catch (err) {
+    console.warn('Error deleting notifications:', err.message);
+  }
+  
+  try {
+    await BLEDevice.destroy({ where: { userId: userId }, force: true });
+  } catch (err) {
+    console.warn('Error deleting BLE devices:', err.message);
+  }
+  
+  try {
+    await BLEReading.destroy({ where: { userId: userId }, force: true });
+  } catch (err) {
+    console.warn('Error deleting BLE readings:', err.message);
+  }
+  
+  try {
+    await Protocol.destroy({ 
+      where: { 
+        [Op.or]: [
+          { createdBy: userId },
+          { lastUpdatedBy: userId }
+        ]
+      }, 
+      force: true 
+    });
+  } catch (err) {
+    console.warn('Error deleting protocols:', err.message);
+  }
+
   // Permanently delete user from database
-  await user.destroy();
+  await user.destroy({ force: true });
 
   // Return profile picture path so controller can delete the file
   return {
